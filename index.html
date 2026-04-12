@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TikTak - Dakikalık Araç Kiralama</title>
+    
+    <!-- Meta Tags for SEO -->
+    <meta name="description" content="TikTak, dakikalık araç kiralama hizmeti ile şehri özgürce gez. Citroen Berlingo ve daha fazlası seninle.">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Splash Screen -->
+    <div id="splash-screen" class="splash-screen">
+        <div class="logo-container">
+            <div class="tiktak-logo">TikTak</div>
+            <div class="loading-bar"></div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <main id="app" class="hidden">
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- Custom Controls Area -->
+        <div class="ui-overlay">
+            <!-- Search & Filters -->
+            <div class="top-controls">
+                <div class="search-pill">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Nereye gitmek istersin?" readonly>
+                </div>
+                
+                <div class="filter-scroll">
+                    <button class="filter-btn active" id="btn-min">Dakikalık</button>
+                    <button class="filter-btn" id="btn-daily">Günlük</button>
+                    <button class="filter-btn" id="btn-neo">TikTak Neo</button>
+                </div>
+            </div>
+
+            <!-- Profile & Notification -->
+            <div class="side-controls">
+                <button class="control-circle" id="btn-radar">
+                    <i data-lucide="radar"></i>
+                </button>
+                <button class="control-circle" id="btn-locate">
+                    <i data-lucide="crosshair"></i>
+                </button>
+            </div>
+
+            <!-- Bottom Navigation -->
+            <nav class="bottom-nav">
+                <div class="nav-item active" id="nav-home">
+                    <i data-lucide="map"></i>
+                    <span>Harita</span>
+                </div>
+                <div class="nav-item" id="nav-wallet">
+                    <i data-lucide="wallet"></i>
+                    <span>Cüzdan</span>
+                </div>
+                <div class="nav-item" id="nav-trips">
+                    <i data-lucide="clock"></i>
+                    <span>Sürüşlerim</span>
+                </div>
+                <div class="nav-item" id="nav-profile">
+                    <i data-lucide="user"></i>
+                    <span>Profil</span>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Car Detail Bottom Sheet -->
+        <div id="bottom-sheet" class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div class="sheet-content">
+                <div class="car-info-grid">
+                    <div class="car-main">
+                        <h2 id="car-model">Citroen Berlingo</h2>
+                        <p id="car-tag">7 Kişilik • Geniş Bagaj</p>
+                    </div>
+                    <div class="car-image-container">
+                        <img id="car-img" src="" alt="Car">
+                    </div>
+                </div>
+
+                <div class="car-stats">
+                    <div class="stat">
+                        <i data-lucide="fuel" class="icon-fuel"></i>
+                        <span id="car-fuel">%85</span>
+                    </div>
+                    <div class="stat">
+                        <i data-lucide="gauge" class="icon-dist"></i>
+                        <span id="car-dist">1.2 km</span>
+                    </div>
+                    <div class="stat">
+                        <i data-lucide="shield-check" class="icon-safe"></i>
+                        <span>Sigortalı</span>
+                    </div>
+                </div>
+
+                <div class="price-section">
+                    <div class="price-info">
+                        <span class="price-value" id="car-price">8,50 ₺</span>
+                        <span class="price-unit">/dk</span>
+                    </div>
+                    <button class="rent-btn" id="start-rent">Kiralamayı Başlat</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rental Confirmation Modal -->
+        <div id="rental-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="success-icon">
+                    <i data-lucide="check-circle-2"></i>
+                </div>
+                <h2>Kiralama Hazırlanıyor</h2>
+                <p>Aracın yanına gitmen için 15 dakika süren başladı.</p>
+                <div class="timer">15:00</div>
+                <button class="close-modal">Anladım</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- App Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
