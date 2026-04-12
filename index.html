@@ -1,12 +1,11 @@
-<!DOCTYPE html>
+ü<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TikTak - Dakikalık Araç Kiralama</title>
+    <title>YurtAraç - Kurumsal Araç Paylaşımı</title>
     
-    <!-- Meta Tags for SEO -->
-    <meta name="description" content="TikTak, dakikalık araç kiralama hizmeti ile şehri özgürce gez. Citroen Berlingo ve daha fazlası seninle.">
+    <meta name="description" content="YurtAraç ile kampüs ve şehir içi ulaşımda özgürleş. Dakikalık, günlük kiralama ve rezervasyon seçenekleri.">
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -17,7 +16,6 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,119 +23,227 @@
     <!-- Splash Screen -->
     <div id="splash-screen" class="splash-screen">
         <div class="logo-container">
-            <div class="tiktak-logo">TikTak</div>
+            <div class="brand-icon">🚐</div>
+            <div class="yurtarac-logo">YurtAraç</div>
             <div class="loading-bar"></div>
         </div>
     </div>
 
     <!-- Main Container -->
     <main id="app" class="hidden">
-        <!-- Map Container -->
-        <div id="map"></div>
-
-        <!-- Custom Controls Area -->
-        <div class="ui-overlay">
-            <!-- Search & Filters -->
+        
+        <!-- View 1: Map View -->
+        <section id="view-map" class="app-view active">
+            <div id="map"></div>
+            
+            <!-- Map UI Overlays -->
             <div class="top-controls">
                 <div class="search-pill">
                     <i data-lucide="search"></i>
-                    <input type="text" placeholder="Nereye gitmek istersin?" readonly>
+                    <input type="text" id="search-input" placeholder="Nereye gitmek istersin?">
                 </div>
                 
                 <div class="filter-scroll">
-                    <button class="filter-btn active" id="btn-min">Dakikalık</button>
-                    <button class="filter-btn" id="btn-daily">Günlük</button>
-                    <button class="filter-btn" id="btn-neo">TikTak Neo</button>
+                    <button class="filter-btn active" data-type="all">Tümü</button>
+                    <button class="filter-btn" data-type="minute">Dakikalık</button>
+                    <button class="filter-btn" data-type="daily">Günlük</button>
+                    <button class="filter-btn" data-type="neo">VIP/Neo</button>
                 </div>
             </div>
 
-            <!-- Profile & Notification -->
             <div class="side-controls">
-                <button class="control-circle" id="btn-radar">
+                <button class="control-circle" id="btn-radar" title="Radar">
                     <i data-lucide="radar"></i>
                 </button>
-                <button class="control-circle" id="btn-locate">
+                <button class="control-circle" id="btn-locate" title="Konumuma Git">
                     <i data-lucide="crosshair"></i>
                 </button>
             </div>
+        </section>
 
-            <!-- Bottom Navigation -->
-            <nav class="bottom-nav">
-                <div class="nav-item active" id="nav-home">
-                    <i data-lucide="map"></i>
-                    <span>Harita</span>
+        <!-- View 2: Services View (İşlemlerim) -->
+        <section id="view-services" class="app-view">
+            <div class="view-header">
+                <h1>İşlemlerim</h1>
+            </div>
+            <div class="view-content">
+                <div class="service-card">
+                    <div class="card-header">
+                        <i data-lucide="calendar"></i>
+                        <h3>Rezervasyonlarım</h3>
+                    </div>
+                    <div class="reservation-list" id="reservation-list">
+                        <!-- Dynamic content -->
+                        <div class="empty-state">Aktif rezervasyonunuz bulunmamaktadır.</div>
+                    </div>
                 </div>
-                <div class="nav-item" id="nav-wallet">
-                    <i data-lucide="wallet"></i>
-                    <span>Cüzdan</span>
-                </div>
-                <div class="nav-item" id="nav-trips">
-                    <i data-lucide="clock"></i>
-                    <span>Sürüşlerim</span>
-                </div>
-                <div class="nav-item" id="nav-profile">
-                    <i data-lucide="user"></i>
-                    <span>Profil</span>
-                </div>
-            </nav>
-        </div>
 
-        <!-- Car Detail Bottom Sheet -->
-        <div id="bottom-sheet" class="bottom-sheet">
+                <div class="service-card">
+                    <div class="card-header">
+                        <i data-lucide="life-buoy"></i>
+                        <h3>Hızlı Destek</h3>
+                    </div>
+                    <div class="support-grid">
+                        <button class="support-item"><i data-lucide="message-square"></i><span>Canlı Destek</span></button>
+                        <button class="support-item"><i data-lucide="phone"></i><span>Bizi Arayın</span></button>
+                        <button class="support-item"><i data-lucide="file-warning"></i><span>Hasar Bildir</span></button>
+                        <button class="support-item"><i data-lucide="help-circle"></i><span>S.S.S</span></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 3: Trips View (Sürüşlerim) -->
+        <section id="view-trips" class="app-view">
+            <div class="view-header">
+                <h1>Sürüş Geçmişi</h1>
+            </div>
+            <div class="view-content">
+                <div id="trips-list" class="trips-list">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+        </section>
+
+        <!-- View 4: Profile View -->
+        <section id="view-profile" class="app-view">
+            <div class="view-header">
+                <h1>Profilim</h1>
+            </div>
+            <div class="view-content profile-layout">
+                <div class="user-info">
+                    <div class="avatar">YA</div>
+                    <div class="details">
+                        <h2>Ahmet Yılmaz</h2>
+                        <p>ahmet@yurtarac.com</p>
+                    </div>
+                </div>
+                <div class="profile-menu">
+                    <div class="menu-item"><i data-lucide="user-check"></i><span>Ehliyet Onayı</span><span class="badge">ONAYLI</span></div>
+                    <div class="menu-item"><i data-lucide="credit-card"></i><span>Ödeme Yöntemleri</span></div>
+                    <div class="menu-item"><i data-lucide="settings"></i><span>Ayarlar</span></div>
+                    <div class="menu-item logout"><i data-lucide="log-out"></i><span>Çıkış Yap</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-view="map">
+                <i data-lucide="map"></i>
+                <span>Harita</span>
+            </div>
+            <div class="nav-item" data-view="services">
+                <i data-lucide="layout-grid"></i>
+                <span>İşlemler</span>
+            </div>
+            <div class="nav-item" data-view="trips">
+                <i data-lucide="clock"></i>
+                <span>Sürüşlerim</span>
+            </div>
+            <div class="nav-item" data-view="profile">
+                <i data-lucide="user"></i>
+                <span>Profil</span>
+            </div>
+        </nav>
+
+        <!-- Dynamic Sheets & Modals -->
+        
+        <!-- Car Selection Sheet -->
+        <div id="car-sheet" class="bottom-sheet">
             <div class="sheet-handle"></div>
             <div class="sheet-content">
                 <div class="car-info-grid">
                     <div class="car-main">
-                        <h2 id="car-model">Citroen Berlingo</h2>
-                        <p id="car-tag">7 Kişilik • Geniş Bagaj</p>
+                        <h2 id="sheet-car-model">Model</h2>
+                        <p id="sheet-car-tag">Tag</p>
                     </div>
                     <div class="car-image-container">
-                        <img id="car-img" src="" alt="Car">
+                        <img id="sheet-car-img" src="" alt="Car">
                     </div>
                 </div>
-
                 <div class="car-stats">
-                    <div class="stat">
-                        <i data-lucide="fuel" class="icon-fuel"></i>
-                        <span id="car-fuel">%85</span>
-                    </div>
-                    <div class="stat">
-                        <i data-lucide="gauge" class="icon-dist"></i>
-                        <span id="car-dist">1.2 km</span>
-                    </div>
-                    <div class="stat">
-                        <i data-lucide="shield-check" class="icon-safe"></i>
-                        <span>Sigortalı</span>
-                    </div>
+                    <div class="stat"><i data-lucide="fuel"></i><span id="sheet-car-fuel">%0</span></div>
+                    <div class="stat"><i data-lucide="gauge"></i><span id="sheet-car-dist">0 km</span></div>
+                    <div class="stat"><i data-lucide="shield-check"></i><span>Sigortalı</span></div>
                 </div>
-
                 <div class="price-section">
                     <div class="price-info">
-                        <span class="price-value" id="car-price">8,50 ₺</span>
+                        <span class="price-value" id="sheet-car-price">0.00 ₺</span>
                         <span class="price-unit">/dk</span>
                     </div>
-                    <button class="rent-btn" id="start-rent">Kiralamayı Başlat</button>
+                    <button class="primary-btn" id="btn-request-rental">Kullanım Talebi</button>
                 </div>
             </div>
         </div>
 
-        <!-- Rental Confirmation Modal -->
-        <div id="rental-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="success-icon">
-                    <i data-lucide="check-circle-2"></i>
-                </div>
-                <h2>Kiralama Hazırlanıyor</h2>
-                <p>Aracın yanına gitmen için 15 dakika süren başladı.</p>
-                <div class="timer">15:00</div>
-                <button class="close-modal">Anladım</button>
+        <!-- Inspection Screen (4-Point Photo) -->
+        <div id="inspection-overlay" class="full-overlay hidden">
+            <div class="overlay-header">
+                <h2>Araç Denetimi</h2>
+                <p>Lütfen 4 açıdan fotoğraf çekin</p>
+            </div>
+            <div class="inspection-grid">
+                <button class="inspect-btn" data-angle="front"><i data-lucide="camera"></i><span>Ön</span></button>
+                <button class="inspect-btn" data-angle="back"><i data-lucide="camera"></i><span>Arka</span></button>
+                <button class="inspect-btn" data-angle="right"><i data-lucide="camera"></i><span>Sağ Yan</span></button>
+                <button class="inspect-btn" data-angle="left"><i data-lucide="camera"></i><span>Sol Yan</span></button>
+            </div>
+            <div class="overlay-footer">
+                <button class="secondary-btn" id="btn-cancel-inspection">Vazgeç</button>
+                <button class="primary-btn disabled" id="btn-start-driving" disabled>Sürüşü Başlat</button>
             </div>
         </div>
+
+        <!-- Active Trip HUD -->
+        <div id="active-trip-hud" class="full-overlay hidden">
+            <div class="hud-top">
+                <div class="hud-car">
+                    <span id="hud-model">Citroen Berlingo</span>
+                    <span class="hud-plate">34 YRT 01</span>
+                </div>
+                <div class="hud-timer" id="hud-timer">00:00:00</div>
+            </div>
+            <div class="hud-center">
+                <div class="speedometer">
+                    <span id="hud-speed">0</span>
+                    <small>km/h</small>
+                </div>
+            </div>
+            <div class="hud-bottom">
+                <div class="hud-stats">
+                    <div class="hud-stat">
+                        <span>Mesafe</span>
+                        <strong id="hud-dist">0.0 km</strong>
+                    </div>
+                    <div class="hud-stat">
+                        <span>Tutar</span>
+                        <strong id="hud-cost">0.00 ₺</strong>
+                    </div>
+                </div>
+                <button class="danger-btn" id="btn-end-trip">Sürüşü Bitir</button>
+            </div>
+        </div>
+
+        <!-- Summary Modal -->
+        <div id="summary-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="success-icon"><i data-lucide="check-circle-2"></i></div>
+                <h2>Sürüş Tamamlandı!</h2>
+                <div class="summary-details">
+                    <div class="sum-row"><span>Süre:</span><strong id="sum-time">0 dk</strong></div>
+                    <div class="sum-row"><span>Mesafe:</span><strong id="sum-dist">0 km</strong></div>
+                    <div class="sum-row"><span>Ort. Hız:</span><strong id="sum-avg">0 km/h</strong></div>
+                    <div class="sum-total"><span>Toplam Tutar:</span><strong id="sum-cost">0.00 ₺</strong></div>
+                </div>
+                <button class="primary-btn" id="btn-close-summary">Ana Sayfaya Dön</button>
+            </div>
+        </div>
+
     </main>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- App Logic -->
     <script src="app.js"></script>
 </body>
 </html>
