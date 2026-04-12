@@ -1,5 +1,7 @@
 // Initialize Lucide Icons
-lucide.createIcons();
+if (window.lucide) {
+    lucide.createIcons();
+}
 
 // --- DATA ---
 const cars = [
@@ -272,19 +274,33 @@ function renderReservations() {
 
 // --- BOOTSTRAP ---
 function startApp() {
-    if (document.getElementById('app').classList.contains('hidden')) {
-        document.getElementById('splash-screen').style.opacity = '0';
+    const splash = document.getElementById('splash-screen');
+    const app = document.getElementById('app');
+    
+    if (app && app.classList.contains('hidden')) {
+        console.log("Starting YurtAraç App...");
+        splash.style.opacity = '0';
+        
         setTimeout(() => {
-            document.getElementById('splash-screen').style.display = 'none';
-            document.getElementById('app').classList.remove('hidden');
-            initMap();
+            splash.style.display = 'none';
+            app.classList.remove('hidden');
+            
+            try {
+                initMap();
+            } catch (err) {
+                console.error("Map initialization failed, but app is starting.", err);
+            }
         }, 600);
     }
 }
 
-window.addEventListener('load', () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // Basic initialization that shouldn't crash
+    if (window.lucide) lucide.createIcons();
+    
+    // Auto-start after delay
     setTimeout(startApp, 2500);
 });
 
-// Fallback for environment issues
+// Hard fallback
 setTimeout(startApp, 5000);
