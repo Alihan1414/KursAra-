@@ -1,338 +1,553 @@
-// YurtAraç App Logic - Defensive Version 
-// Ensures the app starts even if some components (like maps or icons) fail.
+// YurtAraç Institutional Management System - Core Logic
+// Integrated with Firebase Realtime Database (TopClean DB)
 
-// --- DATA ---
-const cars = [
-    { id: 1, model: "Citroen Berlingo", plate: "34 YRT 01", type: "daily", tag: "7 Kişilik • Geniş Bagaj", fuel: "%85", dist: "1.2 km", price: 8.50, coords: [41.0082, 28.9784], img: "https://www.citroen.com.tr/content/dam/citroen/turkey/b2c/models/berlingo-van/product/berlingo-van_product-hero.png" },
-    { id: 2, model: "Renault Clio", plate: "34 YRT 02", type: "minute", tag: "Otomatik • Benzin", fuel: "%42", dist: "0.5 km", price: 7.20, coords: [41.0122, 28.9744], img: "https://cdn.renault.com.tr/renault-assets/vehicules/clio/clio-5/clio5-discovery/renault-clio-v-discovery-001.jpg" },
-    { id: 3, model: "Fiat Egea", plate: "34 YRT 03", type: "minute", tag: "Dizel • Manuel", fuel: "%68", dist: "2.1 km", price: 6.90, coords: [41.0052, 28.9824], img: "https://auto.fiat.com.tr/content/dam/fiat/tr/modeller/egea-sedan/egea-sedan-my23/tasarim/egea-sedan-my23-tasarim-v2.png" },
-    { id: 4, model: "Opel Mokka", plate: "34 YRT 04", type: "neo", tag: "Elektrikli • Premium", fuel: "%92", dist: "0.8 km", price: 10.50, coords: [41.0152, 28.9884], img: "https://www.opel.com.tr/content/dam/opel/turkey/mokka/mokka-e/product/mokka-e-product-hero.png" }
-];
+// ---------- FIREBASE CONFIGURATION ----------
+const firebaseConfig = {
+    apiKey: "AIzaSyCO88ONQpL3vFRMSY-jyhRImbsNC1ngcmQ",
+    authDomain: "topclean-ce4e6.firebaseapp.com",
+    databaseURL: "https://topclean-ce4e6-default-rtdb.firebaseio.com",
+    projectId: "topclean-ce4e6",
+    storageBucket: "topclean-ce4e6.firebaseastorage.app",
+    messagingSenderId: "413118182506",
+    appId: "1:413118182506:web:4e1897da948b8348030613"
+};
 
-const pastTrips = [
-    { id: 101, model: "Renault Clio", date: "12 Nisan 2026", duration: "45 dk", cost: "324.00 ₺" },
-    { id: 102, model: "Fiat Egea", date: "10 Nisan 2026", duration: "1 sa 12 dk", cost: "496.80 ₺" }
-];
-
-const reservations = [
-    { id: 201, model: "Citroen Berlingo", date: "15 Nisan 2026", status: "Beklemede" }
-];
-
-// --- APP STATE ---
-let map = null;
-let markers = [];
-let activeCar = null;
-let inspectionSteps = { front: false, back: false, right: false, left: false };
-let tripTimer = null;
-let tripData = { startTime: null, seconds: 0, distance: 0, cost: 0, speeds: [] };
-
-// --- HELPERS ---
-function safelyAddEvent(id, event, callback) {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener(event, callback);
-}
-
-// --- MAP INIT ---
-function initMap() {
-    try {
-        if (typeof L === 'undefined') {
-            console.warn("Leaflet (L) not defined. Map will not be initialized.");
-            return;
-        }
-        map = L.map('map', { zoomControl: false, attributionControl: false }).setView([41.0082, 28.9784], 14);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
-        renderMarkers('all');
-    } catch (e) {
-        console.error("Map error:", e);
+let db = null;
+try {
+    if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        console.log("Firebase connected successfully.");
     }
+} catch (e) {
+    console.error("Firebase Initialization Error:", e);
 }
 
-function renderMarkers(filter) {
-    if (!map) return;
-    // Clear existing
-    markers.forEach(m => map.removeLayer(m));
-    markers = [];
-
-    cars.forEach(car => {
-        if (filter !== 'all' && car.type !== filter) return;
-
-        const icon = L.divIcon({
-            className: 'custom-marker',
-            html: `<div class="pin"><i data-lucide="car"></i></div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 40]
-        });
-
-        const marker = L.marker(car.coords, { icon }).addTo(map);
-        marker.on('click', () => showCarSheet(car));
-        markers.push(marker);
-    });
-    if (window.lucide) lucide.createIcons();
-}
-
-// --- UI LOGIC ---
-
-function switchView(viewId) {
-    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById(`view-${viewId}`);
-    if (target) target.classList.add('active');
-    
-    if (viewId === 'map' && map) {
-        setTimeout(() => map.invalidateSize(), 100);
-    } else if (viewId === 'trips') {
-        renderTrips();
-    } else if (viewId === 'services') {
-        renderReservations();
+// ---------- APP STATE ----------
+let state = {
+    kurum: null,      // Current Institution Code
+    user: null,       // Current User Object
+    role: null,       // 'admin' or 'personnel'
+    vehicles: [],     // List of vehicles for this institution
+    activeTrip: null, // If the current user has an active trip
+    camera: {
+        stream: null,
+        steps: ['Ön', 'Arka', 'Sağ Yan', 'Sol Yan', 'İç Ön', 'İç Arka'],
+        currentStep: 0,
+        photos: []
     }
+};
+
+// ---------- UI HELPERS ----------
+function showGate(id) {
+    document.querySelectorAll('.gate-view').forEach(g => g.classList.remove('active'));
+    document.getElementById(`gate-${id}`).classList.add('active');
 }
 
-function showCarSheet(car) {
-    activeCar = car;
-    const modelEl = document.getElementById('sheet-car-model');
-    if (modelEl) modelEl.textContent = car.model;
-    
-    const tagEl = document.getElementById('sheet-car-tag');
-    if (tagEl) tagEl.textContent = car.tag;
-    
-    const fuelEl = document.getElementById('sheet-car-fuel');
-    if (fuelEl) fuelEl.textContent = car.fuel;
-    
-    const distEl = document.getElementById('sheet-car-dist');
-    if (distEl) distEl.textContent = car.dist;
-    
-    const priceEl = document.getElementById('sheet-car-price');
-    if (priceEl) priceEl.textContent = car.price.toFixed(2).replace('.', ',') + " ₺";
-    
-    const imgEl = document.getElementById('sheet-car-img');
-    if (imgEl) imgEl.src = car.img;
-    
-    const sheet = document.getElementById('car-sheet');
-    if (sheet) sheet.classList.add('active');
-    
-    if (map) map.panTo([car.coords[0] - 0.002, car.coords[1]]);
+function showPanel(id) {
+    const panels = document.getElementById('panel-container');
+    panels.classList.remove('hidden');
+    document.querySelectorAll('.role-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById(`panel-${id}`).classList.remove('hidden');
 }
 
-function initUI() {
-    // Nav Items
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const targetView = item.getAttribute('data-view');
-            switchView(targetView);
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-        });
-    });
-
-    // Filters
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderMarkers(btn.getAttribute('data-type'));
-        });
-    });
-
-    // Search
-    safelyAddEvent('search-input', 'keypress', (e) => {
-        if (e.key === 'Enter') {
-            const query = e.target.value.toLowerCase();
-            const found = cars.find(c => c.model.toLowerCase().includes(query));
-            if (found && map) {
-                map.flyTo(found.coords, 16);
-                showCarSheet(found);
-            }
-        }
-    });
-
-    // Radar
-    safelyAddEvent('btn-radar', 'click', () => {
-        if (!map) return;
-        const pulse = document.createElement('div');
-        pulse.className = 'radar-pulse';
-        pulse.style.left = '50%';
-        pulse.style.top = '50%';
-        pulse.style.transform = 'translate(-50%, -50%)';
-        const mapEl = document.getElementById('map');
-        if (mapEl) mapEl.appendChild(pulse);
-        setTimeout(() => pulse.remove(), 2000);
-    });
-
-    // Locate
-    safelyAddEvent('btn-locate', 'click', () => {
-        if (map) map.flyTo([41.0082, 28.9784], 15);
-    });
-
-    // Map click to close sheet
-    if (map) {
-        map.on('click', () => {
-            const sheet = document.getElementById('car-sheet');
-            if (sheet) sheet.classList.remove('active');
-        });
-    }
-
-    // Rental Flow
-    safelyAddEvent('btn-request-rental', 'click', () => {
-        const sheet = document.getElementById('car-sheet');
-        if (sheet) sheet.classList.remove('active');
-        const overlay = document.getElementById('inspection-overlay');
-        if (overlay) overlay.classList.remove('hidden');
-    });
-
-    // Inspection
-    document.querySelectorAll('.inspect-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const angle = btn.getAttribute('data-angle');
-            inspectionSteps[angle] = true;
-            btn.classList.add('done');
-            const icon = btn.querySelector('i');
-            if (icon) icon.remove();
-            const checkIcon = document.createElement('i');
-            checkIcon.setAttribute('data-lucide', 'check-circle');
-            btn.prepend(checkIcon);
-            if (window.lucide) lucide.createIcons();
-            
-            if (Object.values(inspectionSteps).every(v => v)) {
-                const startBtn = document.getElementById('btn-start-driving');
-                if (startBtn) {
-                    startBtn.disabled = false;
-                    startBtn.classList.remove('disabled');
-                }
-            }
-        });
-    });
-
-    safelyAddEvent('btn-cancel-inspection', 'click', () => {
-        const overlay = document.getElementById('inspection-overlay');
-        if (overlay) overlay.classList.add('hidden');
-        inspectionSteps = { front: false, back: false, right: false, left: false };
-        document.querySelectorAll('.inspect-btn').forEach(btn => btn.classList.remove('done'));
-    });
-
-    safelyAddEvent('btn-start-driving', 'click', () => {
-        const overlay = document.getElementById('inspection-overlay');
-        if (overlay) overlay.classList.add('hidden');
-        const hud = document.getElementById('active-trip-hud');
-        if (hud) hud.classList.remove('hidden');
-        startTrip();
-    });
-
-    safelyAddEvent('btn-end-trip', 'click', () => {
-        clearInterval(tripTimer);
-        const hud = document.getElementById('active-trip-hud');
-        if (hud) hud.classList.add('hidden');
-        showSummary();
-    });
-
-    safelyAddEvent('btn-close-summary', 'click', () => {
-        const modal = document.getElementById('summary-modal');
-        if (modal) modal.classList.add('hidden');
-        switchView('map');
-    });
-}
-
-// --- RENTAL FLOW CORE ---
-function startTrip() {
-    if (!activeCar) return;
-    tripData = { startTime: new Date(), seconds: 0, distance: 0, cost: 0, speeds: [] };
-    const hudModel = document.getElementById('hud-model');
-    if (hudModel) hudModel.textContent = activeCar.model;
-    
-    tripTimer = setInterval(() => {
-        tripData.seconds++;
-        const speed = Math.floor(Math.random() * 40) + 40;
-        tripData.speeds.push(speed);
-        tripData.distance += (speed / 3600);
-        tripData.cost = (tripData.seconds / 60) * activeCar.price;
-        
-        const speedEl = document.getElementById('hud-speed');
-        if (speedEl) speedEl.textContent = speed;
-        
-        const timerEl = document.getElementById('hud-timer');
-        if (timerEl) timerEl.textContent = formatTime(tripData.seconds);
-        
-        const distEl = document.getElementById('hud-dist');
-        if (distEl) distEl.textContent = tripData.distance.toFixed(1) + " km";
-        
-        const costEl = document.getElementById('hud-cost');
-        if (costEl) costEl.textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
-    }, 1000);
-}
-
-function formatTime(sec) {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
-}
-
-function showSummary() {
-    const avgSpeed = tripData.speeds.length > 0 ? Math.floor(tripData.speeds.reduce((a,b) => a+b, 0) / tripData.speeds.length) : 0;
-    
-    const timeEl = document.getElementById('sum-time');
-    if (timeEl) timeEl.textContent = Math.ceil(tripData.seconds / 60) + " dk";
-    
-    const distEl = document.getElementById('sum-dist');
-    if (distEl) distEl.textContent = tripData.distance.toFixed(1) + " km";
-    
-    const avgEl = document.getElementById('sum-avg');
-    if (avgEl) avgEl.textContent = avgSpeed + " km/h";
-    
-    const costEl = document.getElementById('sum-cost');
-    if (costEl) costEl.textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
-    
-    const modal = document.getElementById('summary-modal');
-    if (modal) modal.classList.remove('hidden');
-}
-
-// --- RENDERING ---
-function renderTrips() {
-    const list = document.getElementById('trips-list');
-    if (!list) return;
-    list.innerHTML = '';
-    pastTrips.forEach(trip => {
-        list.innerHTML += `<div class="trip-card"><div class="trip-info"><h4>${trip.model}</h4><span>${trip.date} • ${trip.duration}</span></div><div class="trip-price">${trip.cost}</div></div>`;
-    });
-}
-
-function renderReservations() {
-    const list = document.getElementById('reservation-list');
-    if (!list) return;
-    if (reservations.length > 0) {
-        list.innerHTML = '';
-        reservations.forEach(res => {
-            list.innerHTML += `<div class="trip-card"><div class="trip-info"><h4>${res.model}</h4><span>${res.date}</span></div><div class="badge">${res.status}</div></div>`;
-        });
-    }
-}
-
-// --- BOOTSTRAP ---
-function startApp() {
-    const splash = document.getElementById('splash-screen');
-    const app = document.getElementById('app');
-    
-    if (app && app.classList.contains('hidden')) {
-        console.log("Starting YurtAraç App...");
-        if (splash) splash.style.opacity = '0';
-        
+// ---------- BOOTSTRAP ----------
+window.addEventListener('load', () => {
+    // Splash screen removal
+    setTimeout(() => {
+        document.getElementById('splash-screen').style.opacity = '0';
         setTimeout(() => {
-            if (splash) splash.style.display = 'none';
-            app.classList.remove('hidden');
-            
-            // Now safe to init map and UI
-            initMap();
-            initUI();
+            document.getElementById('splash-screen').style.display = 'none';
+            document.getElementById('app').classList.remove('hidden');
+            checkStoredSession();
         }, 600);
-    }
-}
+    }, 2000);
 
-// Ensure the app starts regardless of library loading
-document.addEventListener('DOMContentLoaded', () => {
-    if (window.lucide) lucide.createIcons();
-    setTimeout(startApp, 2000);
+    initEventListeners();
+    lucide.createIcons();
 });
 
-// Hard fallback for environments where DOMContentLoaded or load might be weird
-setTimeout(() => {
-    console.log("Fallback startup triggered");
-    startApp();
-}, 4000);
+function checkStoredSession() {
+    const saved = localStorage.getItem('yurtarac_session');
+    if (saved) {
+        const session = JSON.parse(saved);
+        state.kurum = session.kurum;
+        state.user = session.user;
+        state.role = session.role;
+        startInstitutionalSession();
+    } else {
+        showGate('institution');
+    }
+}
+
+// ---------- EVENT LISTENERS ----------
+function initEventListeners() {
+    // 1. Institution Entry
+    document.getElementById('btn-enter-institution').addEventListener('click', handleInstitutionEntry);
+
+    // 2. Login Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const role = btn.getAttribute('data-role');
+            document.querySelectorAll('.login-form-container').forEach(f => f.classList.remove('active'));
+            document.getElementById(`login-${role}`).classList.add('active');
+        });
+    });
+
+    // 3. Login Actions
+    document.getElementById('btn-login-admin').addEventListener('click', handleAdminLogin);
+    document.getElementById('btn-login-personnel').addEventListener('click', handlePersonnelLogin);
+
+    // 4. Back button
+    document.getElementById('btn-back-to-institution').addEventListener('click', () => {
+        state.kurum = null;
+        showGate('institution');
+    });
+
+    // 5. Logout
+    document.querySelectorAll('.logout-btn').forEach(btn => {
+        btn.addEventListener('click', handleLogout);
+    });
+
+    // 6. Camera Actions
+    document.getElementById('btn-capture').addEventListener('click', capturePhoto);
+    document.getElementById('btn-cancel-camera').addEventListener('click', stopCamera);
+}
+
+// ---------- LOGIC: INSTITUTION ----------
+async function handleInstitutionEntry() {
+    const code = document.getElementById('institution-code').value.trim().toUpperCase();
+    if (!code) return Swal.fire('Hata', 'Lütfen bir kurum kodu girin.', 'error');
+
+    state.kurum = code;
+    document.getElementById('display-institution-name').textContent = code;
+
+    // Check Firebase for Institution
+    const snapshot = await db.ref(`institutions/${code}/config`).once('value');
+    const config = snapshot.val();
+
+    if (!config) {
+        // First user is Admin
+        document.getElementById('admin-note').textContent = "Bu kurum henüz kayıtlı değil. Gireceğiniz şifre 'İdareci' şifresi olarak belirlenecektir.";
+        document.getElementById('admin-note').classList.add('warning-text');
+    } else {
+        document.getElementById('admin-note').textContent = "Lütfen idareci şifresini girin.";
+        document.getElementById('admin-note').classList.remove('warning-text');
+        // Load Personnel list for the select
+        loadPersonnelList(config.personnel);
+    }
+
+    showGate('login');
+}
+
+function loadPersonnelList(personnelObj) {
+    const select = document.getElementById('personnel-select');
+    select.innerHTML = '<option value="">Lütfen İsminizi Seçin</option>';
+    if (personnelObj) {
+        Object.values(personnelObj).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            select.appendChild(opt);
+        });
+    }
+}
+
+// ---------- LOGIC: AUTH ----------
+async function handleAdminLogin() {
+    const pass = document.getElementById('admin-password').value.trim();
+    if (!pass) return Swal.fire('Hata', 'Lütfen şifre girin.', 'error');
+
+    const code = state.kurum;
+    const ref = db.ref(`institutions/${code}/config`);
+    const snapshot = await ref.once('value');
+    const config = snapshot.val();
+
+    if (!config) {
+        // Register new institution
+        await ref.set({
+            adminPass: pass,
+            created: new Date().toISOString(),
+            vehicles: {},
+            personnel: {}
+        });
+        state.user = { name: "Admin", id: "admin" };
+    } else {
+        if (config.adminPass !== pass) return Swal.fire('Hata', 'Şifre Yanlış!', 'error');
+        state.user = { name: "Admin", id: "admin" };
+    }
+
+    state.role = 'admin';
+    startInstitutionalSession();
+}
+
+async function handlePersonnelLogin() {
+    const id = document.getElementById('personnel-select').value;
+    const pin = document.getElementById('personnel-pin').value;
+    if (!id || !pin) return Swal.fire('Hata', 'Lütfen isminizi seçin ve PIN girin.', 'error');
+
+    const snap = await db.ref(`institutions/${state.kurum}/config/personnel/${id}`).once('value');
+    const pData = snap.val();
+
+    if (!pData || pData.pin !== pin) return Swal.fire('Hata', 'PIN kodu hatalı!', 'error');
+
+    state.user = pData;
+    state.role = 'personnel';
+    startInstitutionalSession();
+}
+
+function startInstitutionalSession() {
+    // Hide Gates
+    document.querySelectorAll('.gate-view').forEach(g => g.classList.remove('active'));
+    
+    // Save to LocalStorage
+    localStorage.setItem('yurtarac_session', JSON.stringify({
+        kurum: state.kurum,
+        user: state.user,
+        role: state.role
+    }));
+
+    if (state.role === 'admin') {
+        showPanel('admin');
+        initAdminDashboard();
+    } else {
+        showPanel('personnel');
+        initPersonnelDashboard();
+    }
+}
+
+function handleLogout() {
+    localStorage.removeItem('yurtarac_session');
+    location.reload();
+}
+
+// ---------- LOGIC: ADMIN PANEL ----------
+function initAdminDashboard() {
+    document.getElementById('admin-inst-display').textContent = state.kurum;
+    loadAdminStats();
+    loadAdminView('approvals');
+    
+    // Listen for menu clicks
+    document.querySelectorAll('.menu-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadAdminView(btn.getAttribute('data-aview'));
+        });
+    });
+
+    // Live Approval Listener
+    db.ref(`institutions/${state.kurum}/requests`).on('value', snap => {
+        const reqs = snap.val();
+        let pending = 0;
+        if (reqs) {
+            pending = Object.values(reqs).filter(r => r.status === 'pending').length;
+        }
+        const badge = document.getElementById('approval-count');
+        if (pending > 0) {
+            badge.textContent = pending;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+        document.getElementById('stat-pending-reqs').textContent = pending;
+        
+        // If current aview is approvals, refresh
+        if (document.querySelector('.menu-btn[data-aview="approvals"]').classList.contains('active')) {
+            renderApprovals(reqs);
+        }
+    });
+}
+
+function loadAdminStats() {
+    // Basic counters
+    db.ref(`institutions/${state.kurum}/trips`).on('value', snap => {
+        const trips = snap.val();
+        let activeCount = 0;
+        if (trips) {
+            activeCount = Object.values(trips).filter(t => t.active === true).length;
+        }
+        document.getElementById('stat-active-trips').textContent = activeCount;
+    });
+}
+
+function loadAdminView(view) {
+    const container = document.getElementById('admin-content');
+    container.innerHTML = `<div class="p-4 text-center">Yükleniyor...</div>`;
+
+    if (view === 'approvals') {
+        db.ref(`institutions/${state.kurum}/requests`).once('value', snap => {
+            renderApprovals(snap.val());
+        });
+    } else if (view === 'vehicles') {
+        renderVehicleManager();
+    } else if (view === 'personnel') {
+        renderPersonnelManager();
+    } else if (view === 'reports') {
+        renderReports();
+    }
+}
+
+function renderApprovals(reqsObj) {
+    const container = document.getElementById('admin-content');
+    if (!reqsObj) {
+        container.innerHTML = `<div class="empty-state">Henüz talep bulunmuyor.</div>`;
+        return;
+    }
+
+    const html = Object.keys(reqsObj).map(id => {
+        const r = reqsObj[id];
+        if (r.status !== 'pending') return '';
+        return `
+            <div class="approval-card stagger-item">
+                <div class="req-header">
+                    <strong>${r.userName}</strong>
+                    <span>${r.vehicleModel} (${r.vehiclePlate})</span>
+                </div>
+                <div class="req-body">
+                    <p><strong>Amaç:</strong> ${r.purpose}</p>
+                    <div class="req-photos">
+                        ${r.photos.map(p => `<img src="${p}" onclick="zoomImage('${p}')">`).join('')}
+                    </div>
+                </div>
+                <div class="req-footer">
+                    <button class="approve-btn" onclick="processRequest('${id}', 'approved')">ONAYLA</button>
+                    <button class="reject-btn" onclick="processRequest('${id}', 'rejected')">REDDET</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html || `<div class="empty-state">Bekleyen onay bulunmuyor.</div>`;
+}
+
+// ---------- LOGIC: PERSONNEL PANEL ----------
+function initPersonnelDashboard() {
+    document.getElementById('user-display-name').textContent = state.user.name;
+    initMap();
+    
+    document.getElementById('btn-action-main').addEventListener('click', handleMainAction);
+}
+
+function initMap() {
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv) return;
+    const lmap = L.map('map', { zoomControl: false, attributionControl: false }).setView([41.0082, 28.9784], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(lmap);
+    
+    // Fetch and render institution vehicles
+    db.ref(`institutions/${state.kurum}/config/vehicles`).on('value', snap => {
+        const vehs = snap.val();
+        if (vehs) {
+            Object.values(vehs).forEach(v => {
+                const icon = L.divIcon({
+                    className: 'veh-marker',
+                    html: `<div class="pin"><i data-lucide="car"></i></div>`,
+                    iconSize: [40, 40]
+                });
+                L.marker([v.lat || 41.0082, v.lng || 28.9784], { icon }).addTo(lmap).on('click', () => {
+                    Swal.fire({
+                        title: v.model,
+                        text: `${v.plate} - ${v.year}`,
+                        confirmButtonText: 'Seç'
+                    });
+                });
+            });
+            lucide.createIcons();
+        }
+    });
+}
+
+function handleMainAction() {
+    // Start the Request Flow
+    startRequestFlow();
+}
+
+async function startRequestFlow() {
+    const { value: formValues } = await Swal.fire({
+        title: 'Araç Talebi',
+        html:
+            '<input id="swal-plate" class="swal2-input" placeholder="Araç Plakası">' +
+            '<input id="swal-purpose" class="swal2-input" placeholder="Gidiş Amacı/Hedef">',
+        focusConfirm: false,
+        preConfirm: () => {
+            return {
+                plate: document.getElementById('swal-plate').value,
+                purpose: document.getElementById('swal-purpose').value
+            }
+        }
+    });
+
+    if (formValues && formValues.plate && formValues.purpose) {
+        state.activeRequest = { ...formValues, photos: [] };
+        startCameraSequence();
+    }
+}
+
+// ---------- CAMERA SYSTEM ----------
+function startCameraSequence() {
+    state.camera.currentStep = 0;
+    state.camera.photos = [];
+    document.getElementById('camera-overlay').classList.remove('hidden');
+    updateCameraUI();
+    startCamera();
+}
+
+async function startCamera() {
+    try {
+        state.camera.stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment' } 
+        });
+        document.getElementById('camera-video').srcObject = state.camera.stream;
+    } catch (e) {
+        Swal.fire('Kamera Hatası', 'Kamera erişimi sağlanamadı.', 'error');
+        stopCamera();
+    }
+}
+
+function stopCamera() {
+    if (state.camera.stream) {
+        state.camera.stream.getTracks().forEach(t => t.stop());
+    }
+    document.getElementById('camera-overlay').classList.add('hidden');
+}
+
+function updateCameraUI() {
+    document.getElementById('camera-step-title').textContent = state.camera.steps[state.camera.currentStep];
+}
+
+function capturePhoto() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('camera-canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    const data = canvas.toDataURL('image/jpeg', 0.7);
+    state.camera.photos.push(data);
+    
+    state.camera.currentStep++;
+    if (state.camera.currentStep < state.camera.steps.length) {
+        updateCameraUI();
+    } else {
+        finishCamera();
+    }
+}
+
+function finishCamera() {
+    stopCamera();
+    submitRequest();
+}
+
+async function submitRequest() {
+    const newReqRef = db.ref(`institutions/${state.kurum}/requests`).push();
+    await newReqRef.set({
+        userId: state.user.id,
+        userName: state.user.name,
+        vehiclePlate: state.activeRequest.plate,
+        vehicleModel: "Araç", // Simplified for demo
+        purpose: state.activeRequest.purpose,
+        photos: state.camera.photos,
+        status: 'pending',
+        timestamp: new Date().toISOString()
+    });
+    
+    Swal.fire('Gönderildi', 'Talebiniz idareci onayına sunuldu.', 'success');
+}
+
+// --- ADMIN API ---
+window.processRequest = async (id, status) => {
+    await db.ref(`institutions/${state.kurum}/requests/${id}`).update({ status });
+}
+
+window.zoomImage = (src) => {
+    Swal.fire({ imageUrl: src, imageWidth: '100%', showConfirmButton: false });
+}
+
+// --- ADMIN PANEL RENDERING ---
+function renderVehicleManager() {
+    const container = document.getElementById('admin-content');
+    container.innerHTML = `
+        <div class="manager-card">
+            <h4>Yeni Araç Ekle</h4>
+            <div class="input-group">
+                <input type="text" id="new-v-model" placeholder="Model (Örn: Berlingo)">
+                <input type="text" id="new-v-plate" placeholder="Plaka">
+                <button class="primary-btn" onclick="addVehicle()">Kaydet</button>
+            </div>
+        </div>
+        <div id="vehicle-list" class="mt-4"></div>
+    `;
+    loadVehicleList();
+}
+
+window.addVehicle = async () => {
+    const model = document.getElementById('new-v-model').value;
+    const plate = document.getElementById('new-v-plate').value;
+    if (!model || !plate) return;
+    
+    await db.ref(`institutions/${state.kurum}/config/vehicles`).push({
+        model, plate, year: 2024, created: new Date().toISOString()
+    });
+    loadVehicleList();
+}
+
+async function loadVehicleList() {
+    const snap = await db.ref(`institutions/${state.kurum}/config/vehicles`).once('value');
+    const vehs = snap.val();
+    const listEl = document.getElementById('vehicle-list');
+    if (!vehs) {
+        listEl.innerHTML = '<p class="text-center">Henüz araç eklenmemiş.</p>';
+        return;
+    }
+    listEl.innerHTML = Object.values(vehs).map(v => `
+        <div class="list-item">
+            <strong>${v.model}</strong>
+            <span>${v.plate}</span>
+        </div>
+    `).join('');
+}
+
+function renderPersonnelManager() {
+    const container = document.getElementById('admin-content');
+    container.innerHTML = `
+        <div class="manager-card">
+            <h4>Yeni Personel Ekle</h4>
+            <div class="input-group">
+                <input type="text" id="new-p-name" placeholder="İsim Soyisim">
+                <input type="text" id="new-p-pin" placeholder="PIN (4 Haneli)" maxlength="4">
+                <button class="primary-btn" onclick="addPersonnel()">Ekle</button>
+            </div>
+        </div>
+        <div id="personnel-list" class="mt-4"></div>
+    `;
+    loadPersonnelListAdmin();
+}
+
+window.addPersonnel = async () => {
+    const name = document.getElementById('new-p-name').value;
+    const pin = document.getElementById('new-p-pin').value;
+    if (!name || !pin) return;
+    
+    const ref = db.ref(`institutions/${state.kurum}/config/personnel`).push();
+    await ref.set({ id: ref.key, name, pin, created: new Date().toISOString() });
+    loadPersonnelListAdmin();
+}
+
+async function loadPersonnelListAdmin() {
+    const snap = await db.ref(`institutions/${state.kurum}/config/personnel`).once('value');
+    const pers = snap.val();
+    const listEl = document.getElementById('personnel-list');
+    if (!pers) {
+        listEl.innerHTML = '<p class="text-center">Henüz personel eklenmemiş.</p>';
+        return;
+    }
+    listEl.innerHTML = Object.values(pers).map(p => `
+        <div class="list-item">
+            <strong>${p.name}</strong>
+            <span>PIN: ${p.pin}</span>
+        </div>
+    `).join('');
+}
