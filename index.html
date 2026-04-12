@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YurtAraç - Kurumsal Araç Paylaşımı</title>
+    <title>YurtAraç Kurumsal Yönetim Sistemi</title>
     
-    <meta name="description" content="YurtAraç ile kampüs ve şehir içi ulaşımda özgürleş. Dakikalık, günlük kiralama ve rezervasyon seçenekleri.">
+    <meta name="description" content="YurtAraç Kurumsal Araç Yönetim ve Takip Platformu.">
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -16,6 +16,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,218 +35,161 @@
     <!-- Main Container -->
     <main id="app" class="hidden">
         
-        <!-- View 1: Map View -->
-        <section id="view-map" class="app-view active">
-            <div id="map"></div>
+        <!-- SECTION 1: INSTITUTION GATE -->
+        <section id="gate-institution" class="gate-view active">
+            <div class="gate-content">
+                <div class="brand-badge">YA</div>
+                <h2>Kurum Kodu</h2>
+                <p>Lütfen kurumunuza özel kodu giriniz.</p>
+                <div class="input-group">
+                    <input type="text" id="institution-code" placeholder="Örn: YURT01" maxlength="10">
+                    <button class="primary-btn" id="btn-enter-institution">Giriş Yap</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: LOGIN GATE (Admin or Personnel) -->
+        <section id="gate-login" class="gate-view">
+            <div class="gate-header">
+                <button class="back-btn" id="btn-back-to-institution"><i data-lucide="arrow-left"></i></button>
+                <span id="display-institution-name">KURUM KODU</span>
+            </div>
+            <div class="gate-content">
+                <div class="login-tabs">
+                    <button class="tab-btn active" data-role="personnel">Personel</button>
+                    <button class="tab-btn" data-role="admin">İdareci</button>
+                </div>
+
+                <!-- Personnel Login -->
+                <div id="login-personnel" class="login-form-container active">
+                    <select id="personnel-select" class="custom-select">
+                        <option value="">Lütfen İsminizi Seçin</option>
+                    </select>
+                    <input type="password" id="personnel-pin" placeholder="PIN Kodunuz" maxlength="4">
+                    <button class="primary-btn" id="btn-login-personnel">Sisteme Gir</button>
+                </div>
+
+                <!-- Admin Login/Register -->
+                <div id="login-admin" class="login-form-container">
+                    <input type="password" id="admin-password" placeholder="İdareci Şifresi">
+                    <p id="admin-note" class="small-note"></p>
+                    <button class="primary-btn" id="btn-login-admin">İdare Paneline Gir</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: PANELS (The App Itself) -->
+        <div id="panel-container" class="hidden">
             
-            <!-- Map UI Overlays -->
-            <div class="top-controls">
-                <div class="search-pill">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="search-input" placeholder="Nereye gitmek istersin?">
-                </div>
-                
-                <div class="filter-scroll">
-                    <button class="filter-btn active" data-type="all">Tümü</button>
-                    <button class="filter-btn" data-type="minute">Dakikalık</button>
-                    <button class="filter-btn" data-type="daily">Günlük</button>
-                    <button class="filter-btn" data-type="neo">VIP/Neo</button>
-                </div>
-            </div>
-
-            <div class="side-controls">
-                <button class="control-circle" id="btn-radar" title="Radar">
-                    <i data-lucide="radar"></i>
-                </button>
-                <button class="control-circle" id="btn-locate" title="Konumuma Git">
-                    <i data-lucide="crosshair"></i>
-                </button>
-            </div>
-        </section>
-
-        <!-- View 2: Services View (İşlemlerim) -->
-        <section id="view-services" class="app-view">
-            <div class="view-header">
-                <h1>İşlemlerim</h1>
-            </div>
-            <div class="view-content">
-                <div class="service-card">
-                    <div class="card-header">
-                        <i data-lucide="calendar"></i>
-                        <h3>Rezervasyonlarım</h3>
+            <!-- A: Personnel Panel -->
+            <div id="panel-personnel" class="role-panel hidden">
+                <header class="panel-header">
+                    <div class="user-info-mini">
+                        <div class="mini-avatar">YA</div>
+                        <div>
+                            <h4 id="user-display-name">İsim Soyisim</h4>
+                            <span id="user-display-status">Personel</span>
+                        </div>
                     </div>
-                    <div class="reservation-list" id="reservation-list">
-                        <!-- Dynamic content -->
-                        <div class="empty-state">Aktif rezervasyonunuz bulunmamaktadır.</div>
+                    <button class="logout-btn"><i data-lucide="log-out"></i></button>
+                </header>
+
+                <div class="panel-body">
+                    <!-- Personnel Map/Request View -->
+                    <div id="personnel-main" class="p-view active">
+                        <div id="map"></div>
+                        <div class="floating-controls">
+                            <!-- Status Badges -->
+                            <div id="request-status-pill" class="status-pill hidden">
+                                <span class="pulse"></span> <span id="status-text">ONAY BEKLİYOR</span>
+                            </div>
+                            <button id="btn-action-main" class="main-action-btn">
+                                <i data-lucide="car"></i> Araç Talep Et
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="service-card">
-                    <div class="card-header">
-                        <i data-lucide="life-buoy"></i>
-                        <h3>Hızlı Destek</h3>
-                    </div>
-                    <div class="support-grid">
-                        <button class="support-item"><i data-lucide="message-square"></i><span>Canlı Destek</span></button>
-                        <button class="support-item"><i data-lucide="phone"></i><span>Bizi Arayın</span></button>
-                        <button class="support-item"><i data-lucide="file-warning"></i><span>Hasar Bildir</span></button>
-                        <button class="support-item"><i data-lucide="help-circle"></i><span>S.S.S</span></button>
-                    </div>
-                </div>
+                <nav class="bottom-nav">
+                    <div class="nav-item active" data-pview="main"><i data-lucide="map"></i><span>Harita</span></div>
+                    <div class="nav-item" data-pview="requests"><i data-lucide="history"></i><span>Geçmiş</span></div>
+                    <div class="nav-item" data-pview="profile"><i data-lucide="user"></i><span>Profil</span></div>
+                </nav>
             </div>
-        </section>
 
-        <!-- View 3: Trips View (Sürüşlerim) -->
-        <section id="view-trips" class="app-view">
-            <div class="view-header">
-                <h1>Sürüş Geçmişi</h1>
-            </div>
-            <div class="view-content">
-                <div id="trips-list" class="trips-list">
-                    <!-- Dynamic content -->
-                </div>
-            </div>
-        </section>
+            <!-- B: Admin Panel -->
+            <div id="panel-admin" class="role-panel hidden">
+                <header class="panel-header">
+                    <div class="admin-title">
+                        <h2>İdari Yönetim</h2>
+                        <span id="admin-inst-display">KURUM KODU</span>
+                    </div>
+                    <button class="logout-btn"><i data-lucide="log-out"></i></button>
+                </header>
 
-        <!-- View 4: Profile View -->
-        <section id="view-profile" class="app-view">
-            <div class="view-header">
-                <h1>Profilim</h1>
-            </div>
-            <div class="view-content profile-layout">
-                <div class="user-info">
-                    <div class="avatar">YA</div>
-                    <div class="details">
-                        <h2>Ahmet Yılmaz</h2>
-                        <p>ahmet@yurtarac.com</p>
+                <div class="panel-body scrollable">
+                    <div class="admin-stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-val" id="stat-active-trips">0</span>
+                            <span class="stat-lbl">Aktif Sürüş</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-val" id="stat-pending-reqs">0</span>
+                            <span class="stat-lbl">Onay Bekleyen</span>
+                        </div>
+                    </div>
+
+                    <div class="admin-menu">
+                        <button class="menu-btn active" data-aview="approvals">
+                            <i data-lucide="clipboard-check"></i> Onay Kuyruğu <span class="count-badge hidden" id="approval-count">0</span>
+                        </button>
+                        <button class="menu-btn" data-aview="vehicles">
+                            <i data-lucide="car"></i> Araç Filosu
+                        </button>
+                        <button class="menu-btn" data-aview="personnel">
+                            <i data-lucide="users"></i> Personel Listesi
+                        </button>
+                        <button class="menu-btn" data-aview="reports">
+                            <i data-lucide="bar-chart-2"></i> Raporlar
+                        </button>
+                    </div>
+
+                    <div id="admin-content" class="admin-view-content">
+                        <!-- Views will be injected here -->
                     </div>
                 </div>
-                <div class="profile-menu">
-                    <div class="menu-item"><i data-lucide="user-check"></i><span>Ehliyet Onayı</span><span class="badge">ONAYLI</span></div>
-                    <div class="menu-item"><i data-lucide="credit-card"></i><span>Ödeme Yöntemleri</span></div>
-                    <div class="menu-item"><i data-lucide="settings"></i><span>Ayarlar</span></div>
-                    <div class="menu-item logout"><i data-lucide="log-out"></i><span>Çıkış Yap</span></div>
-                </div>
             </div>
-        </section>
 
-        <!-- Bottom Navigation -->
-        <nav class="bottom-nav">
-            <div class="nav-item active" data-view="map">
-                <i data-lucide="map"></i>
-                <span>Harita</span>
-            </div>
-            <div class="nav-item" data-view="services">
-                <i data-lucide="layout-grid"></i>
-                <span>İşlemler</span>
-            </div>
-            <div class="nav-item" data-view="trips">
-                <i data-lucide="clock"></i>
-                <span>Sürüşlerim</span>
-            </div>
-            <div class="nav-item" data-view="profile">
-                <i data-lucide="user"></i>
-                <span>Profil</span>
-            </div>
-        </nav>
-
-        <!-- Dynamic Sheets & Modals -->
-        
-        <!-- Car Selection Sheet -->
-        <div id="car-sheet" class="bottom-sheet">
-            <div class="sheet-handle"></div>
-            <div class="sheet-content">
-                <div class="car-info-grid">
-                    <div class="car-main">
-                        <h2 id="sheet-car-model">Model</h2>
-                        <p id="sheet-car-tag">Tag</p>
-                    </div>
-                    <div class="car-image-container">
-                        <img id="sheet-car-img" src="" alt="Car">
-                    </div>
-                </div>
-                <div class="car-stats">
-                    <div class="stat"><i data-lucide="fuel"></i><span id="sheet-car-fuel">%0</span></div>
-                    <div class="stat"><i data-lucide="gauge"></i><span id="sheet-car-dist">0 km</span></div>
-                    <div class="stat"><i data-lucide="shield-check"></i><span>Sigortalı</span></div>
-                </div>
-                <div class="price-section">
-                    <div class="price-info">
-                        <span class="price-value" id="sheet-car-price">0.00 ₺</span>
-                        <span class="price-unit">/dk</span>
-                    </div>
-                    <button class="primary-btn" id="btn-request-rental">Kullanım Talebi</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Inspection Screen (4-Point Photo) -->
-        <div id="inspection-overlay" class="full-overlay hidden">
-            <div class="overlay-header">
-                <h2>Araç Denetimi</h2>
-                <p>Lütfen 4 açıdan fotoğraf çekin</p>
-            </div>
-            <div class="inspection-grid">
-                <button class="inspect-btn" data-angle="front"><i data-lucide="camera"></i><span>Ön</span></button>
-                <button class="inspect-btn" data-angle="back"><i data-lucide="camera"></i><span>Arka</span></button>
-                <button class="inspect-btn" data-angle="right"><i data-lucide="camera"></i><span>Sağ Yan</span></button>
-                <button class="inspect-btn" data-angle="left"><i data-lucide="camera"></i><span>Sol Yan</span></button>
-            </div>
-            <div class="overlay-footer">
-                <button class="secondary-btn" id="btn-cancel-inspection">Vazgeç</button>
-                <button class="primary-btn disabled" id="btn-start-driving" disabled>Sürüşü Başlat</button>
-            </div>
-        </div>
-
-        <!-- Active Trip HUD -->
-        <div id="active-trip-hud" class="full-overlay hidden">
-            <div class="hud-top">
-                <div class="hud-car">
-                    <span id="hud-model">Citroen Berlingo</span>
-                    <span class="hud-plate">34 YRT 01</span>
-                </div>
-                <div class="hud-timer" id="hud-timer">00:00:00</div>
-            </div>
-            <div class="hud-center">
-                <div class="speedometer">
-                    <span id="hud-speed">0</span>
-                    <small>km/h</small>
-                </div>
-            </div>
-            <div class="hud-bottom">
-                <div class="hud-stats">
-                    <div class="hud-stat">
-                        <span>Mesafe</span>
-                        <strong id="hud-dist">0.0 km</strong>
-                    </div>
-                    <div class="hud-stat">
-                        <span>Tutar</span>
-                        <strong id="hud-cost">0.00 ₺</strong>
-                    </div>
-                </div>
-                <button class="danger-btn" id="btn-end-trip">Sürüşü Bitir</button>
-            </div>
-        </div>
-
-        <!-- Summary Modal -->
-        <div id="summary-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="success-icon"><i data-lucide="check-circle-2"></i></div>
-                <h2>Sürüş Tamamlandı!</h2>
-                <div class="summary-details">
-                    <div class="sum-row"><span>Süre:</span><strong id="sum-time">0 dk</strong></div>
-                    <div class="sum-row"><span>Mesafe:</span><strong id="sum-dist">0 km</strong></div>
-                    <div class="sum-row"><span>Ort. Hız:</span><strong id="sum-avg">0 km/h</strong></div>
-                    <div class="sum-total"><span>Toplam Tutar:</span><strong id="sum-cost">0.00 ₺</strong></div>
-                </div>
-                <button class="primary-btn" id="btn-close-summary">Ana Sayfaya Dön</button>
-            </div>
         </div>
 
     </main>
 
+    <!-- Camera Overlay -->
+    <div id="camera-overlay" class="camera-overlay hidden">
+        <div class="camera-header">
+            <h3 id="camera-step-title">Ön Fotoğraf</h3>
+            <p>Lütfen net bir kare çekin</p>
+        </div>
+        <div class="video-container">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <div class="camera-guides">
+                <div class="guide-box"></div>
+            </div>
+        </div>
+        <div class="camera-controls">
+            <button id="btn-cancel-camera" class="cam-btn secondary">İptal</button>
+            <button id="btn-capture" class="cam-btn primary"><i data-lucide="camera"></i></button>
+        </div>
+        <canvas id="camera-canvas" class="hidden"></canvas>
+    </div>
+
+    <!-- Firebase SDKs (v8 legacy for easy integration like TopClean) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
     <script src="app.js"></script>
 </body>
 </html>
