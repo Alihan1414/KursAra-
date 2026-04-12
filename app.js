@@ -1,7 +1,5 @@
-// Initialize Lucide Icons
-if (window.lucide) {
-    lucide.createIcons();
-}
+// YurtAraç App Logic - Defensive Version 
+// Ensures the app starts even if some components (like maps or icons) fail.
 
 // --- DATA ---
 const cars = [
@@ -28,14 +26,29 @@ let inspectionSteps = { front: false, back: false, right: false, left: false };
 let tripTimer = null;
 let tripData = { startTime: null, seconds: 0, distance: 0, cost: 0, speeds: [] };
 
+// --- HELPERS ---
+function safelyAddEvent(id, event, callback) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(event, callback);
+}
+
 // --- MAP INIT ---
 function initMap() {
-    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([41.0082, 28.9784], 14);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
-    renderMarkers('all');
+    try {
+        if (typeof L === 'undefined') {
+            console.warn("Leaflet (L) not defined. Map will not be initialized.");
+            return;
+        }
+        map = L.map('map', { zoomControl: false, attributionControl: false }).setView([41.0082, 28.9784], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        renderMarkers('all');
+    } catch (e) {
+        console.error("Map error:", e);
+    }
 }
 
 function renderMarkers(filter) {
+    if (!map) return;
     // Clear existing
     markers.forEach(m => map.removeLayer(m));
     markers = [];
@@ -54,28 +67,17 @@ function renderMarkers(filter) {
         marker.on('click', () => showCarSheet(car));
         markers.push(marker);
     });
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 }
 
-// --- VIEW MANAGEMENT ---
-const navItems = document.querySelectorAll('.nav-item');
-const views = document.querySelectorAll('.app-view');
-
-navItems.forEach(item => {
-    item.addEventListener('click', () => {
-        const targetView = item.getAttribute('data-view');
-        switchView(targetView);
-        
-        navItems.forEach(i => i.classList.remove('active'));
-        item.classList.add('active');
-    });
-});
+// --- UI LOGIC ---
 
 function switchView(viewId) {
-    views.forEach(v => v.classList.remove('active'));
-    document.getElementById(`view-${viewId}`).classList.add('active');
+    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById(`view-${viewId}`);
+    if (target) target.classList.add('active');
     
-    if (viewId === 'map') {
+    if (viewId === 'map' && map) {
         setTimeout(() => map.invalidateSize(), 100);
     } else if (viewId === 'trips') {
         renderTrips();
@@ -84,126 +86,175 @@ function switchView(viewId) {
     }
 }
 
-// --- UI INTERACTIONS ---
-
-// Search
-document.getElementById('search-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const query = e.target.value.toLowerCase();
-        const found = cars.find(c => c.model.toLowerCase().includes(query));
-        if (found) {
-            map.flyTo(found.coords, 16);
-            showCarSheet(found);
-        }
-    }
-});
-
-// Filters
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderMarkers(btn.getAttribute('data-type'));
-    });
-});
-
-// Sheet Logic
-const carSheet = document.getElementById('car-sheet');
 function showCarSheet(car) {
     activeCar = car;
-    document.getElementById('sheet-car-model').textContent = car.model;
-    document.getElementById('sheet-car-tag').textContent = car.tag;
-    document.getElementById('sheet-car-fuel').textContent = car.fuel;
-    document.getElementById('sheet-car-dist').textContent = car.dist;
-    document.getElementById('sheet-car-price').textContent = car.price.toFixed(2).replace('.', ',') + " ₺";
-    document.getElementById('sheet-car-img').src = car.img;
+    const modelEl = document.getElementById('sheet-car-model');
+    if (modelEl) modelEl.textContent = car.model;
     
-    carSheet.classList.add('active');
-    map.panTo([car.coords[0] - 0.002, car.coords[1]]); // Offset for sheet
+    const tagEl = document.getElementById('sheet-car-tag');
+    if (tagEl) tagEl.textContent = car.tag;
+    
+    const fuelEl = document.getElementById('sheet-car-fuel');
+    if (fuelEl) fuelEl.textContent = car.fuel;
+    
+    const distEl = document.getElementById('sheet-car-dist');
+    if (distEl) distEl.textContent = car.dist;
+    
+    const priceEl = document.getElementById('sheet-car-price');
+    if (priceEl) priceEl.textContent = car.price.toFixed(2).replace('.', ',') + " ₺";
+    
+    const imgEl = document.getElementById('sheet-car-img');
+    if (imgEl) imgEl.src = car.img;
+    
+    const sheet = document.getElementById('car-sheet');
+    if (sheet) sheet.classList.add('active');
+    
+    if (map) map.panTo([car.coords[0] - 0.002, car.coords[1]]);
 }
 
-map.on('click', () => carSheet.classList.remove('active'));
+function initUI() {
+    // Nav Items
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const targetView = item.getAttribute('data-view');
+            switchView(targetView);
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
 
-// Radar
-document.getElementById('btn-radar').addEventListener('click', () => {
-    const center = map.getCenter();
-    const pulse = document.createElement('div');
-    pulse.className = 'radar-pulse';
-    pulse.style.left = '50%';
-    pulse.style.top = '50%';
-    pulse.style.transform = 'translate(-50%, -50%)';
-    document.getElementById('map').appendChild(pulse);
-    
-    setTimeout(() => pulse.remove(), 2000);
-});
+    // Filters
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderMarkers(btn.getAttribute('data-type'));
+        });
+    });
 
-// Locate
-document.getElementById('btn-locate').addEventListener('click', () => {
-    map.flyTo([41.0082, 28.9784], 15);
-});
-
-// --- RENTAL FLOW ---
-
-// 1. Request Rental
-document.getElementById('btn-request-rental').addEventListener('click', () => {
-    carSheet.classList.remove('active');
-    document.getElementById('inspection-overlay').classList.remove('hidden');
-});
-
-// 2. Inspection
-const inspectButtons = document.querySelectorAll('.inspect-btn');
-const startDrivingBtn = document.getElementById('btn-start-driving');
-
-inspectButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        const angle = btn.getAttribute('data-angle');
-        inspectionSteps[angle] = true;
-        btn.classList.add('done');
-        btn.querySelector('i').remove();
-        const checkIcon = document.createElement('i');
-        checkIcon.setAttribute('data-lucide', 'check-circle');
-        btn.prepend(checkIcon);
-        lucide.createIcons();
-        
-        if (Object.values(inspectionSteps).every(v => v)) {
-            startDrivingBtn.disabled = false;
-            startDrivingBtn.classList.remove('disabled');
+    // Search
+    safelyAddEvent('search-input', 'keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = e.target.value.toLowerCase();
+            const found = cars.find(c => c.model.toLowerCase().includes(query));
+            if (found && map) {
+                map.flyTo(found.coords, 16);
+                showCarSheet(found);
+            }
         }
     });
-});
 
-document.getElementById('btn-cancel-inspection').addEventListener('click', () => {
-    document.getElementById('inspection-overlay').classList.add('hidden');
-    // Reset steps
-    inspectionSteps = { front: false, back: false, right: false, left: false };
-    inspectButtons.forEach(btn => btn.classList.remove('done'));
-});
+    // Radar
+    safelyAddEvent('btn-radar', 'click', () => {
+        if (!map) return;
+        const pulse = document.createElement('div');
+        pulse.className = 'radar-pulse';
+        pulse.style.left = '50%';
+        pulse.style.top = '50%';
+        pulse.style.transform = 'translate(-50%, -50%)';
+        const mapEl = document.getElementById('map');
+        if (mapEl) mapEl.appendChild(pulse);
+        setTimeout(() => pulse.remove(), 2000);
+    });
 
-// 3. Start Driving
-startDrivingBtn.addEventListener('click', () => {
-    document.getElementById('inspection-overlay').classList.add('hidden');
-    document.getElementById('active-trip-hud').classList.remove('hidden');
-    startTrip();
-});
+    // Locate
+    safelyAddEvent('btn-locate', 'click', () => {
+        if (map) map.flyTo([41.0082, 28.9784], 15);
+    });
 
+    // Map click to close sheet
+    if (map) {
+        map.on('click', () => {
+            const sheet = document.getElementById('car-sheet');
+            if (sheet) sheet.classList.remove('active');
+        });
+    }
+
+    // Rental Flow
+    safelyAddEvent('btn-request-rental', 'click', () => {
+        const sheet = document.getElementById('car-sheet');
+        if (sheet) sheet.classList.remove('active');
+        const overlay = document.getElementById('inspection-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    });
+
+    // Inspection
+    document.querySelectorAll('.inspect-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const angle = btn.getAttribute('data-angle');
+            inspectionSteps[angle] = true;
+            btn.classList.add('done');
+            const icon = btn.querySelector('i');
+            if (icon) icon.remove();
+            const checkIcon = document.createElement('i');
+            checkIcon.setAttribute('data-lucide', 'check-circle');
+            btn.prepend(checkIcon);
+            if (window.lucide) lucide.createIcons();
+            
+            if (Object.values(inspectionSteps).every(v => v)) {
+                const startBtn = document.getElementById('btn-start-driving');
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.classList.remove('disabled');
+                }
+            }
+        });
+    });
+
+    safelyAddEvent('btn-cancel-inspection', 'click', () => {
+        const overlay = document.getElementById('inspection-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        inspectionSteps = { front: false, back: false, right: false, left: false };
+        document.querySelectorAll('.inspect-btn').forEach(btn => btn.classList.remove('done'));
+    });
+
+    safelyAddEvent('btn-start-driving', 'click', () => {
+        const overlay = document.getElementById('inspection-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        const hud = document.getElementById('active-trip-hud');
+        if (hud) hud.classList.remove('hidden');
+        startTrip();
+    });
+
+    safelyAddEvent('btn-end-trip', 'click', () => {
+        clearInterval(tripTimer);
+        const hud = document.getElementById('active-trip-hud');
+        if (hud) hud.classList.add('hidden');
+        showSummary();
+    });
+
+    safelyAddEvent('btn-close-summary', 'click', () => {
+        const modal = document.getElementById('summary-modal');
+        if (modal) modal.classList.add('hidden');
+        switchView('map');
+    });
+}
+
+// --- RENTAL FLOW CORE ---
 function startTrip() {
+    if (!activeCar) return;
     tripData = { startTime: new Date(), seconds: 0, distance: 0, cost: 0, speeds: [] };
-    document.getElementById('hud-model').textContent = activeCar.model;
+    const hudModel = document.getElementById('hud-model');
+    if (hudModel) hudModel.textContent = activeCar.model;
     
     tripTimer = setInterval(() => {
         tripData.seconds++;
-        
-        // Simulating speed and distance
-        const speed = Math.floor(Math.random() * 40) + 40; // 40-80 km/h
+        const speed = Math.floor(Math.random() * 40) + 40;
         tripData.speeds.push(speed);
-        tripData.distance += (speed / 3600); // dist per second
+        tripData.distance += (speed / 3600);
         tripData.cost = (tripData.seconds / 60) * activeCar.price;
         
-        // Update HUD
-        document.getElementById('hud-speed').textContent = speed;
-        document.getElementById('hud-timer').textContent = formatTime(tripData.seconds);
-        document.getElementById('hud-dist').textContent = tripData.distance.toFixed(1) + " km";
-        document.getElementById('hud-cost').textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
+        const speedEl = document.getElementById('hud-speed');
+        if (speedEl) speedEl.textContent = speed;
+        
+        const timerEl = document.getElementById('hud-timer');
+        if (timerEl) timerEl.textContent = formatTime(tripData.seconds);
+        
+        const distEl = document.getElementById('hud-dist');
+        if (distEl) distEl.textContent = tripData.distance.toFixed(1) + " km";
+        
+        const costEl = document.getElementById('hud-cost');
+        if (costEl) costEl.textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
     }, 1000);
 }
 
@@ -214,60 +265,42 @@ function formatTime(sec) {
     return [h, m, s].map(v => v < 10 ? "0" + v : v).join(":");
 }
 
-// 4. End Trip
-document.getElementById('btn-end-trip').addEventListener('click', () => {
-    clearInterval(tripTimer);
-    document.getElementById('active-trip-hud').classList.add('hidden');
-    showSummary();
-});
-
 function showSummary() {
-    const avgSpeed = Math.floor(tripData.speeds.reduce((a,b) => a+b, 0) / tripData.speeds.length);
-    document.getElementById('sum-time').textContent = Math.ceil(tripData.seconds / 60) + " dk";
-    document.getElementById('sum-dist').textContent = tripData.distance.toFixed(1) + " km";
-    document.getElementById('sum-avg').textContent = avgSpeed + " km/h";
-    document.getElementById('sum-cost').textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
+    const avgSpeed = tripData.speeds.length > 0 ? Math.floor(tripData.speeds.reduce((a,b) => a+b, 0) / tripData.speeds.length) : 0;
     
-    document.getElementById('summary-modal').classList.remove('hidden');
+    const timeEl = document.getElementById('sum-time');
+    if (timeEl) timeEl.textContent = Math.ceil(tripData.seconds / 60) + " dk";
+    
+    const distEl = document.getElementById('sum-dist');
+    if (distEl) distEl.textContent = tripData.distance.toFixed(1) + " km";
+    
+    const avgEl = document.getElementById('sum-avg');
+    if (avgEl) avgEl.textContent = avgSpeed + " km/h";
+    
+    const costEl = document.getElementById('sum-cost');
+    if (costEl) costEl.textContent = tripData.cost.toFixed(2).replace('.', ',') + " ₺";
+    
+    const modal = document.getElementById('summary-modal');
+    if (modal) modal.classList.remove('hidden');
 }
 
-document.getElementById('btn-close-summary').addEventListener('click', () => {
-    document.getElementById('summary-modal').classList.add('hidden');
-    switchView('map');
-});
-
-// --- LIST RENDERERS ---
-
+// --- RENDERING ---
 function renderTrips() {
     const list = document.getElementById('trips-list');
+    if (!list) return;
     list.innerHTML = '';
     pastTrips.forEach(trip => {
-        list.innerHTML += `
-            <div class="trip-card">
-                <div class="trip-info">
-                    <h4>${trip.model}</h4>
-                    <span>${trip.date} • ${trip.duration}</span>
-                </div>
-                <div class="trip-price">${trip.cost}</div>
-            </div>
-        `;
+        list.innerHTML += `<div class="trip-card"><div class="trip-info"><h4>${trip.model}</h4><span>${trip.date} • ${trip.duration}</span></div><div class="trip-price">${trip.cost}</div></div>`;
     });
 }
 
 function renderReservations() {
     const list = document.getElementById('reservation-list');
+    if (!list) return;
     if (reservations.length > 0) {
         list.innerHTML = '';
         reservations.forEach(res => {
-            list.innerHTML += `
-                <div class="trip-card">
-                    <div class="trip-info">
-                        <h4>${res.model}</h4>
-                        <span>${res.date}</span>
-                    </div>
-                    <div class="badge">${res.status}</div>
-                </div>
-            `;
+            list.innerHTML += `<div class="trip-card"><div class="trip-info"><h4>${res.model}</h4><span>${res.date}</span></div><div class="badge">${res.status}</div></div>`;
         });
     }
 }
@@ -279,28 +312,27 @@ function startApp() {
     
     if (app && app.classList.contains('hidden')) {
         console.log("Starting YurtAraç App...");
-        splash.style.opacity = '0';
+        if (splash) splash.style.opacity = '0';
         
         setTimeout(() => {
-            splash.style.display = 'none';
+            if (splash) splash.style.display = 'none';
             app.classList.remove('hidden');
             
-            try {
-                initMap();
-            } catch (err) {
-                console.error("Map initialization failed, but app is starting.", err);
-            }
+            // Now safe to init map and UI
+            initMap();
+            initUI();
         }, 600);
     }
 }
 
+// Ensure the app starts regardless of library loading
 document.addEventListener('DOMContentLoaded', () => {
-    // Basic initialization that shouldn't crash
     if (window.lucide) lucide.createIcons();
-    
-    // Auto-start after delay
-    setTimeout(startApp, 2500);
+    setTimeout(startApp, 2000);
 });
 
-// Hard fallback
-setTimeout(startApp, 5000);
+// Hard fallback for environments where DOMContentLoaded or load might be weird
+setTimeout(() => {
+    console.log("Fallback startup triggered");
+    startApp();
+}, 4000);
