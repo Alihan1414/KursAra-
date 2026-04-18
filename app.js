@@ -147,6 +147,7 @@ async function handleInstitutionEntry() {
 
     if (!config) {
         document.getElementById('admin-note').innerHTML = "<span class='text-warning'>Bu kurum henüz kayıtlı değil.</span> İlk girişte belirlediğiniz şifre İdareci şifresi olacaktır.";
+        loadPersonnelList(null); // Clear list
     } else {
         document.getElementById('admin-note').textContent = "Lütfen idareci şifresini girin.";
         loadPersonnelList(config.personnel);
@@ -156,14 +157,20 @@ async function handleInstitutionEntry() {
 
 function loadPersonnelList(personnelObj) {
     const select = document.getElementById('personnel-select');
+    if (!select) return;
     select.innerHTML = '<option value="">Lütfen İsminizi Seçin</option>';
-    if (personnelObj) {
+    if (personnelObj && typeof personnelObj === 'object') {
         Object.values(personnelObj).forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.id;
             opt.textContent = p.name;
             select.appendChild(opt);
         });
+    } else {
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = "(Personel Listesi Boş)";
+        select.appendChild(opt);
     }
 }
 
@@ -190,7 +197,9 @@ async function handleAdminLogin() {
 async function handlePersonnelLogin() {
     const id = document.getElementById('personnel-select').value;
     const pin = document.getElementById('personnel-pin').value;
-    if (!id || !pin) return;
+    
+    if (!id) return Swal.fire('Hata', 'Lütfen listeden isminizi seçin.', 'warning');
+    if (!pin) return Swal.fire('Hata', 'PIN kodunuzu girin.', 'warning');
 
     const snap = await db.ref(`institutions/${state.kurum}/config/personnel/${id}`).once('value');
     const pData = snap.val();
