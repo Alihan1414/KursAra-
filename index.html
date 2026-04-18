@@ -2,194 +2,711 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YurtAraç Kurumsal Yönetim Sistemi</title>
-    
-    <meta name="description" content="YurtAraç Kurumsal Araç Yönetim ve Takip Platformu.">
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopClean - Cleaning App Yönetimi</title>
     
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+    window.onerror = function(msg, url, line, col, error) {
+        var err = "MSG:" + msg + " LINE:" + line + " COL:" + col;
+        fetch("http://localhost:5555/?error=" + encodeURIComponent(err));
+    };
+    </script>
+
+    <!-- Bootstrap 5.3 -->
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    
+    <link rel="stylesheet" href="style.css?v=7.0">
+    
+    <!-- PWA / Mobile Meta Tags -->
+    <meta name="theme-color" content="#030807">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TopClean">
+    <link rel="apple-touch-icon" href="icon-512.png">
 </head>
 <body>
-
-    <!-- Splash Screen -->
-    <div id="splash-screen" class="splash-screen" style="background-color: #10B981 !important;">
-        <div class="logo-container">
-            <div class="brand-icon">🚐</div>
-            <div class="yurtarac-logo">YurtAraç</div>
-            <div class="loading-bar"></div>
-        </div>
+    <!-- Dynamic Aurora Background -->
+    <div class="aurora-container">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
     </div>
 
-    <!-- Main Container -->
-    <main id="app" class="hidden">
-        
-        <!-- SECTION 1: INSTITUTION GATE -->
-        <section id="gate-institution" class="gate-view active">
-            <div class="gate-content">
-                <div class="brand-badge">YA</div>
-                <h2>Kurum Kodu</h2>
-                <p>Lütfen kurumunuza özel kodu giriniz.</p>
-                <div class="input-group">
-                    <input type="text" id="institution-code" placeholder="Örn: YURT01" maxlength="10">
-                    <button class="primary-btn" id="btn-enter-institution">Giriş Yap</button>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header id="app-header" class="d-none">
+            <div class="header-content container-fluid d-flex justify-content-between align-items-center">
+                <div class="header-brand">
+                    <h1 class="main-title mb-0">TopClean</h1>
+                </div>
+                
+                <div class="d-flex align-items-center gap-3">
+                    <div id="headerUserBadge" class="header-user-badge d-flex align-items-center gap-2 px-3 py-2 rounded-pill d-none">
+                        <div class="user-avatar-small bg-emerald-glow">
+                            <i data-lucide="user" size="14" class="text-emerald"></i>
+                        </div>
+                        <span id="headerName" class="small fw-bold text-white"></span>
+                    </div>
+                    <div class="header-actions d-flex gap-2">
+                        <button id="themeToggleBtn" class="btn btn-glass-round" title="Tema Değiştir">
+                            <i data-lucide="moon" size="18"></i>
+                        </button>
+                        <button id="logoutBtn" class="btn btn-glass-round text-danger-glow" title="Çıkış Yap">
+                            <i data-lucide="log-out" size="18"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
-        </section>
+        </header>
 
-        <!-- SECTION 2: LOGIN GATE (Admin or Personnel) -->
-        <section id="gate-login" class="gate-view">
-            <div class="gate-header">
-                <button class="back-btn" id="btn-back-to-institution"><i data-lucide="arrow-left"></i></button>
-                <span id="display-institution-name">KURUM KODU</span>
-            </div>
-            <div class="gate-content">
-                <div class="login-tabs">
-                    <button class="tab-btn active" data-role="personnel">Personel</button>
-                    <button class="tab-btn" data-role="admin">İdareci</button>
-                </div>
-
-                <!-- Personnel Login -->
-                <div id="login-personnel" class="login-form-container active">
-                    <select id="personnel-select" class="custom-select">
-                        <option value="">Lütfen İsminizi Seçin</option>
-                    </select>
-                    <input type="password" id="personnel-pin" placeholder="PIN Kodunuz" maxlength="4">
-                    <button class="primary-btn" id="btn-login-personnel">Sisteme Gir</button>
-                </div>
-
-                <!-- Admin Login/Register -->
-                <div id="login-admin" class="login-form-container">
-                    <input type="password" id="admin-password" placeholder="İdareci Şifresi">
-                    <p id="admin-note" class="small-note"></p>
-                    <button class="primary-btn" id="btn-login-admin">İdare Paneline Gir</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- SECTION 3: PANELS (The App Itself) -->
-        <div id="panel-container" class="hidden">
+        <!-- MAIN CONTENT AREA -->
+        <main id="mainContainer" class="flex-grow-1 position-relative d-flex flex-column align-items-center p-3 p-md-4">
+            <!-- Side Branding Layer (Black Background + Screen Blend for Perfect Logo) -->
+            <img src="assets/logo_enderun_black.png" class="side-branding branding-left" alt="Enderun Logo">
+            <img src="assets/logo_cleaning_black.png" class="side-branding branding-right" alt="Cleaning Logo">
             
-            <!-- A: Personnel Panel -->
-            <div id="panel-personnel" class="role-panel hidden">
-                <header class="panel-header">
-                    <div class="user-info-mini">
-                        <div class="mini-avatar">YA</div>
-                        <div>
-                            <h4 id="user-display-name">İsim Soyisim</h4>
-                            <span id="user-display-status">Personel</span>
+            <!-- 1. LOGIN PANEL -->
+            <div id="loginPanel" class="view-panel active">
+                <div class="glass-card text-center p-5 mw-100 position-relative" style="width: 480px; margin: auto;">
+                    <!-- Login Theme Toggle -->
+                    <button id="themeToggleBtnLogin" class="btn btn-glass-round position-absolute top-0 end-0 m-3" title="Tema Değiştir">
+                        <i data-lucide="moon" size="18"></i>
+                    </button>
+                    <div class="mb-4">
+                        <div class="d-inline-flex p-3 rounded-circle bg-emerald-glow mb-3">
+                            <i data-lucide="shield-check" class="text-emerald" size="48"></i>
+                        </div>
+                        <h2 class="fw-black mb-2 text-white">Sisteme Giriş</h2>
+                        <p class="text-secondary">Bulut tabanlı yönetim paneli</p>
+                    </div>
+                    
+                    <form id="loginForm" class="d-flex flex-column gap-3">
+                        <div id="quickLoginSection">
+                            <div class="text-start mb-3">
+                                <label class="small fw-bold text-dim mb-2 ms-2">PERSONEL SEÇİMİ</label>
+                                <select id="userSelect" class="form-select custom-input select-dark py-3">
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            <div class="text-start">
+                                <label class="small fw-bold text-dim mb-2 ms-2">GÜVENLİK ŞİFRESİ</label>
+                                <input type="password" id="passInput" class="form-control custom-input py-3 text-center" placeholder="••••" autocomplete="current-password">
+                            </div>
+                        </div>
+
+                        <div id="emailLoginSection" class="d-none">
+                            <div class="text-start mb-3">
+                                <label class="small fw-bold text-dim mb-2 ms-2">E-POSTA ADRESİ</label>
+                                <input type="email" id="emailInput" class="form-control custom-input py-3" placeholder="admin@topclean.com">
+                            </div>
+                            <div class="text-start">
+                                <label class="small fw-bold text-dim mb-2 ms-2">ŞİFRE</label>
+                                <input type="password" id="emailPassInput" class="form-control custom-input py-3" placeholder="••••••••">
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-emerald-lg w-100 py-3 mt-4 d-flex align-items-center justify-content-center gap-2">
+                            <i data-lucide="arrow-right-circle" size="20"></i> OTURUMU AÇ
+                        </button>
+                    </form>
+
+                    <button id="toggleLoginMode" class="btn btn-link text-dim x-small mt-3 text-decoration-none" onclick="toggleAuthMode()">
+                        E-posta ile Giriş Yap
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. GÖREVLİ PANELİ (KAT/BÖLÜM SEÇİMİ) -->
+            <div id="gorevliPanel" class="view-panel w-100 mw-800">
+                <div class="w-100 mb-4 text-center">
+                    <div class="d-inline-block px-4 py-2 glass-card mb-2" style="border-radius: 50px;">
+                        <h4 class="fw-bold m-0" style="color: var(--text-muted); font-size: 1rem;">
+                            GÖREVLİ PANELİ
+                        </h4>
+                    </div>
+                    <h2 class="fw-bold m-0" style="color: var(--accent-primary);">
+                        📍<span id="gorevliKatAd" class="ms-2"></span>
+                    </h2>
+                </div>
+
+                <div id="reddedilenUyari" class="alert alert-danger d-none d-flex align-items-center gap-3 p-3 rounded-3" style="background-color: rgba(225, 29, 72, 0.1); border-color: var(--danger-color);">
+                    <i data-lucide="alert-circle" class="text-danger" size="24"></i>
+                    <div class="fw-bold flex-grow-1" style="color: #fca5a5;">🚨 İçin reddedilen <span id="reddedilenSayi"></span> bölüm var — müfettiş notlarını inceleyin!</div>
+                </div>
+
+                <div id="onarilanArizaUyari" class="alert alert-success d-none flex-column gap-2 p-3 rounded-3 mb-3 w-100" style="background-color: rgba(16, 185, 129, 0.1); border: 1px solid var(--success-color);">
+                    <div class="d-flex align-items-center gap-3">
+                        <i data-lucide="wrench" class="text-emerald" size="24"></i>
+                        <div class="fw-bold flex-grow-1 text-emerald">✅ Onarılan Arızalarınız Var!</div>
+                    </div>
+                    <div id="onarilanArizaList" class="small mt-2" style="color: #a7f3d0;"></div>
+                </div>
+                
+                <div class="d-flex gap-2 mb-4">
+                    <button class="btn btn-warning flex-grow-1 py-3 fw-bold rounded-pill d-flex align-items-center justify-content-center gap-2 shadow-lg" onclick="showArizaForm()" style="background-color: #f59e0b; color: #1e1e1e; border: none; font-size: 1.1rem;">
+                        <i data-lucide="wrench" size="22"></i> ARIZA BİLDİR
+                    </button>
+                    <!-- Sadece Burakhan (Depo Sorumlusu) için özel buton -->
+                    <button id="btnEnvanterErisim" class="btn btn-emerald flex-grow-1 py-3 fw-bold rounded-pill d-flex align-items-center justify-content-center gap-2 shadow-lg d-none" onclick="InventoryManager.ac()" style="font-size: 1.1rem; background: linear-gradient(135deg, #10b981, #059669);">
+                        <i data-lucide="package" size="22"></i> DEPO YÖNETİMİ
+                    </button>
+                    <button id="btnStokIslemi" class="btn btn-emerald flex-grow-1 py-3 fw-bold rounded-pill d-flex align-items-center justify-content-center gap-2 shadow-lg" onclick="InventoryManager.showMovementForm()" style="font-size: 1.1rem;">
+                        <i data-lucide="package" size="22"></i> STOK İŞLEMİ
+                    </button>
+                    <button id="btnUrunTanimla" class="btn btn-glass-round py-3 fw-bold rounded-pill d-flex align-items-center justify-content-center gap-2 shadow-lg d-none" onclick="InventoryManager.showAddProductForm()" style="font-size: 1.1rem; border: 1px solid var(--accent-emerald) !important;">
+                        <i data-lucide="plus-circle" size="22"></i> YENİ ÜRÜN TANIMLA
+                    </button>
+                </div>
+
+                <div id="bolumListesi" class="d-flex flex-column gap-3 overflow-auto" style="padding-bottom: 80px;">
+                    <!-- Bölüm kartları buraya eklenecek -->
+                </div>
+            </div>
+
+            <!-- 3. KRİTER / CHECKLIST PANELİ (Yeni Basit Tasarım) -->
+            <div id="kriterPanel" class="view-panel w-100 mw-800">
+                <!-- Üst Bar -->
+                <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+                    <button class="btn btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 flex-shrink-0" style="width: 38px; height: 38px; border-color: var(--glass-border);" onclick="KriterManager.geriDon()">
+                        <i data-lucide="arrow-left" size="18" class="text-muted"></i>
+                    </button>
+                    <div class="text-center flex-grow-1">
+                        <div class="x-small fw-bold text-muted text-uppercase" id="kriterKatAd" style="letter-spacing: 1px;"></div>
+                        <h4 class="fw-bold m-0 text-white" id="kriterBolumAd"></h4>
+                    </div>
+                    <div id="kriterSayac" class="badge bg-emerald rounded-pill px-3 py-2 fw-bold" style="font-size:0.75rem;">5/5 ✅</div>
+                </div>
+
+                <!-- Hızlı İpucu -->
+                <div class="text-center mb-3">
+                    <span class="x-small text-muted"><i data-lucide="info" size="12"></i> Yapamadığın varsa dokun kaldır, sonra GÖNDER</span>
+                </div>
+
+                <!-- Kriter Listesi -->
+                <div id="kriterListesi" class="d-flex flex-column rounded-4 overflow-hidden mb-3" style="border: 1px solid var(--glass-border); background: var(--glass-bg);">
+                    <!-- JS ile doldurulur -->
+                </div>
+
+                <!-- Fotoğraf Önizleme (gizli) -->
+                <div id="fotoOnizlemeContainer" class="d-none mb-3 text-center position-relative" style="width: fit-content; margin: 0 auto;">
+                    <img id="fotoOnizleme" src="" class="rounded-3" style="max-height: 100px; max-width: 200px; border: 2px solid var(--accent-emerald);">
+                    <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1" onclick="KriterManager.fotografiSil()" style="width: 22px; height: 22px; line-height: 1; font-size: 0.7rem;">&times;</button>
+                </div>
+
+                <!-- Gizli file input -->
+                <input type="file" accept="image/*" capture="environment" id="fotoUpload" class="d-none">
+                <span id="fotoDurum" class="d-none"></span>
+
+                <!-- Yapışkan Alt Çubuk -->
+                <div id="kriterStickyBar" style="position:fixed;bottom:0;left:0;right:0;z-index:999;background:var(--bg-main);border-top:1px solid var(--glass-border);padding:12px 16px;backdrop-filter:blur(20px);">
+                    <div class="d-flex align-items-center gap-2 justify-content-center" style="max-width:800px;margin:0 auto;">
+                        <!-- Kamera -->
+                        <label class="btn btn-glass-round d-flex align-items-center justify-content-center position-relative" style="width:46px;height:46px;border-radius:50%;cursor:pointer;" id="btnKameraFAB">
+                            <i data-lucide="camera" size="20"></i>
+                            <input type="file" accept="image/*" capture="environment" class="d-none" onchange="KriterManager.fabFotoYukle(event)">
+                            <span id="fotoCheckBadge" class="d-none position-absolute" style="top:-2px;right:-2px;width:16px;height:16px;background:#10b981;border-radius:50%;font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;">✓</span>
+                        </label>
+                        <!-- Not -->
+                        <input type="text" id="gorevliNot" class="form-control custom-input py-2 flex-grow-1" placeholder="Not ekle..." style="border-radius:50px;font-size:0.85rem;height:46px;">
+                        <!-- Gönder -->
+                        <button class="btn btn-emerald-lg px-4 py-2 fw-bold rounded-pill d-flex align-items-center gap-2 shadow" onclick="KriterManager.veriyiKaydet()" style="height:46px;white-space:nowrap;font-size:0.85rem;letter-spacing:1px;">
+                            <i data-lucide="send" size="16"></i> GÖNDER
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- 4. ADMIN / MÜFETTİŞ PANELİ -->
+            <div id="adminPanel" class="view-panel w-100 flex-column align-items-stretch position-relative h-100">
+                <div class="w-100 h-100 d-flex flex-column" style="max-width: 600px; margin: 0 auto; padding: 0;">
+                    
+                    <!-- ADIM 1: KAT SEÇİM EKRANI -->
+                    <div id="mufettisKatSecim" class="d-flex flex-column h-100">
+                        <div class="text-center mb-4 mt-2">
+                            <h4 class="fw-black text-white m-0" style="letter-spacing: 2px;">DENETİM MERKEZİ</h4>
+                            <div class="x-small text-emerald mt-1">Lütfen denetlemek istediğiniz katı seçin</div>
+                        </div>
+                        
+                        <div class="d-flex align-items-center gap-2 glass-card px-3 rounded-pill w-100 mb-4" style="border: 1px solid var(--accent-primary) !important; height: 44px;">
+                            <i data-lucide="calendar" size="14" class="text-emerald flex-shrink-0"></i>
+                            <input type="date" id="adminDateSelector" class="bg-transparent border-0 text-white fw-bold shadow-none flex-grow-1" style="outline: none; font-size: 0.85rem;">
+                        </div>
+                        
+                        <!-- Kat Butonları Container -->
+                        <div id="mufettisKatButonlari" class="d-flex flex-column gap-3 pb-4 overflow-auto flex-grow-1">
+                            <!-- JS tarafından doldurulacak -->
+                        </div>
+                        
+                        <div class="mt-auto pb-4">
+                            <button class="btn btn-emerald-outline fw-bold w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill mb-2" onclick="AdminManager.exportCSV()" style="font-size: 0.8rem; height: 44px;">
+                                <i data-lucide="download" size="14"></i> EXCEL RAPORU İNDİR
+                            </button>
+                            <button class="btn btn-warning fw-bold w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill" onclick="AdminManager.showArizalar()" style="font-size: 0.8rem; height: 44px; color: #1e1e1e;">
+                                <i data-lucide="wrench" size="14"></i> BEKLEYEN ARIZALAR (<span id="adminArizaCount">0</span>)
+                            </button>
                         </div>
                     </div>
-                    <button class="logout-btn"><i data-lucide="log-out"></i></button>
-                </header>
 
-                <div class="panel-body">
-                    <!-- Personnel Map/Request View -->
-                    <div id="personnel-main" class="p-view active">
-                        <div id="map"></div>
-                        <div class="floating-controls">
-                            <!-- Status Badges -->
-                            <div id="request-status-pill" class="status-pill hidden">
-                                <span class="pulse"></span> <span id="status-text">ONAY BEKLİYOR</span>
+                    <!-- ADIM 2: ODAKLI DENETİM MODU (Başlangıçta Gizli) -->
+                    <div id="mufettisOdakModu" class="d-none flex-column flex-grow-1 h-100 pb-3">
+                        <!-- Üst Bar: Geri Dönüş ve İlerleme -->
+                        <div class="d-flex align-items-center mb-4">
+                            <button class="btn btn-sm btn-glass-round me-3" onclick="MufettisFocus.cikisYAP()">
+                                <i data-lucide="arrow-left" size="18"></i>
+                            </button>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between x-small text-muted fw-bold mb-1">
+                                    <span id="focusKatIsim">1. Kat</span>
+                                    <span id="focusYuzdeMetin">%0 (0/5)</span>
+                                </div>
+                                <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                                    <div id="focusIlerlemeBar" class="progress-bar bg-emerald" role="progressbar" style="width: 0%;"></div>
+                                </div>
                             </div>
-                            <button id="btn-action-main" class="main-action-btn">
-                                <i data-lucide="car"></i> Araç Talep Et
+                        </div>
+                        
+                        <!-- Ortada Koca Oda Kartı -->
+                        <div class="glass-card flex-grow-1 d-flex flex-column align-items-center justify-content-center p-4 text-center position-relative overflow-hidden mb-4" id="focusOdaKarti" style="border: 2px solid var(--accent-emerald); background: linear-gradient(to bottom, rgba(16, 185, 129, 0.05), rgba(0,0,0,0.5)); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; transform-origin: center;">
+                            
+                            <!-- İkon -->
+                            <div class="mb-4 bg-emerald-glow p-4 rounded-circle d-inline-flex" style="background: rgba(16,185,129,0.1);">
+                                <i data-lucide="door-open" size="48" class="text-emerald"></i>
+                            </div>
+                            
+                            <!-- Oda Adı -->
+                            <h2 id="focusOdaAdi" class="fw-black text-white mb-3" style="font-size: 2rem;">Lavabolar</h2>
+                            
+                            <!-- Görevli Bilgisi -->
+                            <div class="x-small text-muted text-uppercase fw-bold mb-1">GÖREVLİ İŞLEMİ</div>
+                            <div id="focusGorevliZaman" class="badge-status badge-idle px-3 py-1 mb-3" style="font-size: 0.8rem;">14:30 - Bekleniyor</div>
+                            
+                            <!-- Görevli Notu -->
+                            <div id="focusGorevliNotContainer" class="d-none w-100 p-3 rounded-3" style="background: rgba(0,0,0,0.3); border-left: 3px solid rgba(255,255,255,0.2);">
+                                <div class="x-small text-dim mb-1"><i data-lucide="message-square" size="12"></i> Mesaj:</div>
+                                <div id="focusGorevliNot" class="text-white small fw-bold fst-italic">Her şey tamam</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Dev Butonlar (Alt Kısım) -->
+                        <div class="d-flex gap-3 mt-auto">
+                            <button class="btn btn-danger flex-grow-1 rounded-4 py-4 d-flex flex-column align-items-center justify-content-center gap-2 fw-black shadow-lg" onclick="MufettisFocus.onBtnReddet()" style="font-size: 1.1rem; border: none; background: linear-gradient(135deg, #ef4444, #991b1b);">
+                                <i data-lucide="x-circle" size="28"></i> KUSURLU
+                            </button>
+                            <button class="btn btn-emerald flex-grow-1 rounded-4 py-4 d-flex flex-column align-items-center justify-content-center gap-2 fw-black shadow-lg" onclick="MufettisFocus.onayVer()" style="font-size: 1.1rem; border: none;">
+                                <i data-lucide="check-circle" size="28"></i> TERTEMİZ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ADIM 3: HIZLI ETİKET AÇILIR MENÜSÜ (Başlangıçta Gizli) -->
+                    <div id="mufettisHizliRetPanel" class="position-absolute bottom-0 start-0 w-100 p-3 z-3" style="background: var(--bg-main); border-top: 2px solid var(--accent-primary); border-radius: 20px 20px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform: translateY(100%); display:flex; flex-direction:column; pointer-events:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-white fw-bold m-0"><i data-lucide="alert-triangle" class="text-danger me-2" size="16"></i> Neden Kusurlu?</h6>
+                            <button class="btn btn-sm btn-glass-round" onclick="MufettisFocus.iptalRet()"><i data-lucide="x" size="16"></i></button>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><button class="btn btn-outline-danger w-100 rounded-3 py-3 fw-bold small" onclick="MufettisFocus.hizliRet('Çöp Kutusu Dolu')">🗑️ Çöp Dolu</button></div>
+                            <div class="col-6"><button class="btn btn-outline-danger w-100 rounded-3 py-3 fw-bold small" onclick="MufettisFocus.hizliRet('Zemin Kirli')">🧹 Zemin Kirli</button></div>
+                            <div class="col-6"><button class="btn btn-outline-danger w-100 rounded-3 py-3 fw-bold small" onclick="MufettisFocus.hizliRet('Eşyalar Dağınık')">📦 Dağınık</button></div>
+                            <div class="col-6"><button class="btn btn-outline-danger w-100 rounded-3 py-3 fw-bold small" onclick="MufettisFocus.hizliRet('Lavabo Pis')">🚰 Lavabo Pis</button></div>
+                            <div class="col-12"><button class="btn btn-outline-light w-100 rounded-3 py-3 fw-bold small" onclick="MufettisFocus.acKlavyeRet()">✍️ Diğer Neden (Yaz)</button></div>
+                        </div>
+                    </div>
+
+                </div>
+
+            <!-- 5. İDAREC PANELİ -->
+            <div id="idarecPanel" class="view-panel w-100 flex-column align-items-stretch">
+                <div class="w-100" style="max-width: 860px; margin: 0 auto; padding: 0;">
+
+                    <!-- Panel Title -->
+                    <div class="text-center mb-3">
+                        <div class="d-inline-block px-4 py-2 glass-card" style="border-radius: 50px;">
+                            <h4 class="fw-bold m-0" style="color: var(--text-muted); font-size: 0.9rem;">🏛️ YÖNETİM MERKEZİ</h4>
+                        </div>
+                    </div>
+
+                    <!-- İdareci Sekmeleri (Tabs) -->
+                        <button class="idarec-tab active fw-bold rounded-pill px-4 py-2 flex-shrink-0" onclick="IdarecManager.switchTab('durum', this)">🏢 Bina Durumu</button>
+                        <button class="idarec-tab fw-bold rounded-pill px-4 py-2 flex-shrink-0" onclick="IdarecManager.switchTab('muf', this)">👮 İç Mesuller</button>
+                        <button class="idarec-tab fw-bold rounded-pill px-4 py-2 flex-shrink-0" onclick="IdarecManager.switchTab('personel', this)">👨‍🏫 Personeller</button>
+                        <button class="idarec-tab fw-bold rounded-pill px-4 py-2 flex-shrink-0" onclick="IdarecManager.switchTab('ari', this)">🛠️ Arızalar</button>
+                        <button class="idarec-tab fw-bold rounded-pill px-4 py-2 flex-shrink-0" onclick="IdarecManager.switchTab('stok', this)">📦 Stok Takibi</button>
+                    </div>
+
+                    <!-- TAB 1: BİNA DURUMU -->
+                    <div id="idarec-tab-durum" class="idarec-tab-content">
+                        <!-- Upper Action Row: Date & GDrive -->
+                        <div class="d-flex gap-2 mb-3">
+                            <div class="d-flex align-items-center gap-2 glass-card px-3 rounded-pill flex-grow-1" style="border: 1px solid var(--accent-primary) !important; height: 44px; padding: 0.5rem 1rem;">
+                                <i data-lucide="calendar" size="14" class="text-emerald flex-shrink-0"></i>
+                                <input type="date" id="idarecDateSelector" class="bg-transparent border-0 text-white fw-bold shadow-none flex-grow-1 w-100" style="outline: none; font-size: 0.85rem;">
+                            </div>
+                            <button class="btn btn-emerald-lg fw-bold px-4 rounded-pill d-flex align-items-center gap-2" style="height: 44px; font-size: 0.85rem; padding: 0.5rem 1.5rem;" onclick="IdarecManager.exportCSV()">
+                                <i data-lucide="download-cloud" size="16"></i> İNDİR
+                            </button>
+                        </div>
+                        
+                        <!-- Genel Hijyen Barı -->
+                        <div class="glass-card p-3 mb-4 text-center shadow-lg" style="border-left: 4px solid var(--accent-emerald);">
+                            <h6 class="text-white fw-bold small mb-2 text-uppercase">Tüm Yurt Genel Hijyen Yüzdesi</h6>
+                            <div class="progress mt-2" style="height: 14px; border-radius: 10px; background: rgba(255,255,255,0.1);">
+                                <div id="genelHijyenBar" class="progress-bar bg-emerald" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div id="genelHijyenText" class="mt-2 text-emerald fw-bold fs-5">%0</div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <!-- Sol Taraf: Bina Matrisi ve Kat Filtreleri -->
+                            <div class="col-12 col-lg-7">
+                                <!-- Kat Butonları -->
+                                <div class="d-flex flex-wrap gap-2 mb-3 justify-content-center" id="katFilterButtons">
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold active kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Hepsi', this)">Tümü</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Bodrum Kat', this)">Bodrum</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Zemin Kat', this)">Zemin</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Akademik Kat', this)">Akademik</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Ara Kat', this)">Ara</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Yatakhane Katı', this)">Yatakhane</button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-bold kat-filter" style="border-color: rgba(255,255,255,0.2); color:white;" onclick="IdarecManager.filterKat('Sosyal Alan Katı', this)">Sosyal Alan</button>
+                                </div>
+                                <div id="idarecBinaMatrisi" class="d-flex flex-column pb-2 w-100 align-items-center" style="transform-origin: top center; transform: scale(0.9);"></div>
+                            </div>
+                            
+                            <!-- Sağ Taraf: Gurur Tablosu -->
+                            <div class="col-12 col-lg-5">
+                                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-center" style="background: linear-gradient(145deg, rgba(245, 158, 11, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(245, 158, 11, 0.3);">
+                                    <div class="text-center mb-4">
+                                        <i data-lucide="trophy" size="48" class="text-warning mb-2" style="filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));"></i>
+                                        <h4 class="fw-black text-white m-0" style="letter-spacing: 1px;">GURUR TABLOSU</h4>
+                                    </div>
+                                    <div class="d-flex gap-2 mb-4 justify-content-center">
+                                        <button class="btn btn-sm rounded-pill fw-bold flex-grow-1 basari-filter active" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.1);" onclick="IdarecManager.loadBasari('haftalik', this)">Haftalık</button>
+                                        <button class="btn btn-sm rounded-pill fw-bold flex-grow-1 basari-filter" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid transparent;" onclick="IdarecManager.loadBasari('aylik', this)">Aylık</button>
+                                        <button class="btn btn-sm rounded-pill fw-bold flex-grow-1 basari-filter" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid transparent;" onclick="IdarecManager.loadBasari('donemlik', this)">Dönemlik</button>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1 text-center mt-2 mb-4 bg-glass-dark p-3 rounded-4" style="background: rgba(0,0,0,0.2);">
+                                        <div class="small text-muted text-uppercase fw-bold" style="letter-spacing: 1px;">EN BAŞARILI KAT</div>
+                                        <h2 id="basariKatIsim" class="fw-black text-warning m-0">-</h2>
+                                        <div id="basariPuan" class="small text-emerald fw-bold mt-1"></div>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1 text-center mt-2">
+                                        <div class="x-small text-muted text-uppercase fw-bold" style="letter-spacing: 1px;"><i data-lucide="user" size="12"></i> KAT GÖREVLİSİ</div>
+                                        <h6 id="basariGorevli" class="text-white m-0 fw-bold">-</h6>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1 text-center mt-3">
+                                        <div class="x-small text-muted text-uppercase fw-bold" style="letter-spacing: 1px;"><i data-lucide="crown" size="12" class="text-warning"></i> KAT BAŞKANI</div>
+                                        <h6 id="basariBaskan" class="text-white m-0 fw-bold">-</h6>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: İÇ MESUL YÖNETİMİ -->
+                    <div id="idarec-tab-muf" class="idarec-tab-content d-none">
+                        <div class="glass-card p-4 mb-4">
+                            <h6 class="fw-bold text-white mb-3">👮 Yeni İç Mesul Ekle</h6>
+                            <div class="d-flex flex-column gap-2">
+                                <input type="text" id="yeniMufettisAd" class="form-control custom-input" placeholder="Ad Soyad">
+                                <input type="password" id="yeniMufettisSifre" class="form-control custom-input" placeholder="Şifre">
+                                <button class="btn btn-emerald-lg w-100 py-2 fw-bold rounded-3" onclick="IdarecManager.mufettisEkle()">
+                                    <i data-lucide="user-check" size="16"></i> KAYDET
+                                </button>
+                            </div>
+                        </div>
+                        <div id="mufettisListesi" class="d-flex flex-column gap-2 pb-5"></div>
+                    </div>
+
+                    <!-- TAB 4: PERSONEL YÖNETİMİ -->
+                    <div id="idarec-tab-personel" class="idarec-tab-content d-none">
+                        <!-- Add form -->
+                        <div class="glass-card p-4 mb-4">
+                            <h6 class="fw-bold text-white mb-3">➕ Yeni Görevli Ekle</h6>
+                            <div class="d-flex flex-column gap-2">
+                                <input type="text" id="yeniPersonelAd" class="form-control custom-input" placeholder="Ad Soyad">
+                                <input type="password" id="yeniPersonelSifre" class="form-control custom-input" placeholder="Şifre">
+                                <select id="yeniPersonelKat" class="form-select custom-input">
+                                    <option value="">-- Kat Seç --</option>
+                                    <option>Bodrum Kat</option>
+                                    <option>Zemin Kat</option>
+                                    <option>Akademik Kat</option>
+                                    <option>Ara Kat</option>
+                                    <option>Yatakhane Katı</option>
+                                    <option>Sosyal Alan Katı</option>
+                                </select>
+                                <button class="btn btn-emerald-lg w-100 py-2 fw-bold rounded-3" onclick="IdarecManager.personelEkle()">
+                                    <i data-lucide="user-plus" size="16"></i> KAYDET
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Personnel list -->
+                        <div id="personelListesi" class="d-flex flex-column gap-2 pb-5"></div>
+                    </div>
+
+                    <!-- TAB 5: ARIZALAR -->
+                    <div id="idarec-tab-ari" class="idarec-tab-content d-none">
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-sm rounded-pill px-3 fw-bold ariza-filter active" style="background: rgba(16,185,129,0.2); color: #34D399; border: 1px solid #10B981;" onclick="IdarecManager.filterArizalar('hepsi', this)">Tümü</button>
+                            <button class="btn btn-sm rounded-pill px-3 fw-bold ariza-filter" style="background: rgba(245,158,11,0.1); color: #f59e0b; border: 1px solid #f59e0b;" onclick="IdarecManager.filterArizalar('bekliyor', this)">⏳ Bekleyenler</button>
+                            <button class="btn btn-sm rounded-pill px-3 fw-bold ariza-filter" style="background: rgba(40,167,69,0.1); color: #28a745; border: 1px solid #28a745;" onclick="IdarecManager.filterArizalar('onarildi', this)">✅ Onarılanlar</button>
+                        </div>
+                        <div class="d-flex justify-content-end mb-3">
+                            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="IdarecManager.exportArizaCSV()"><i data-lucide="download" size="14"></i> EXCEL</button>
+                        </div>
+                        <div id="idarecArizaList" class="d-flex flex-column gap-2 pb-5"></div>
+                    </div>
+
+                    <!-- TAB 6: STOK TAKİBİ (İçerik stokPanel'e taşındı) -->
+                    <div id="idarec-tab-stok" class="idarec-tab-content d-none">
+                        <div class="glass-card p-5 text-center mt-4">
+                            <i data-lucide="package" size="48" class="text-emerald mb-4"></i>
+                            <h4 class="text-white fw-bold mb-3">Stok ve Envanter</h4>
+                            <p class="text-muted mb-4 text-sm">Ürünleri görüntülemek, limit ayarlamak ve geçmiş hareketleri incelemek için yönetim panelini açın.</p>
+                            <button class="btn btn-emerald-lg px-5 py-3 rounded-pill fw-bold" onclick="InventoryManager.ac()">
+                                ENVANTER PANELİNİ AÇ
                             </button>
                         </div>
                     </div>
                 </div>
-
-                <nav class="bottom-nav">
-                    <div class="nav-item active" data-pview="main"><i data-lucide="map"></i><span>Harita</span></div>
-                    <div class="nav-item" data-pview="requests"><i data-lucide="history"></i><span>Geçmiş</span></div>
-                    <div class="nav-item" data-pview="profile"><i data-lucide="user"></i><span>Profil</span></div>
-                </nav>
             </div>
 
-            <!-- B: Admin Panel -->
-            <div id="panel-admin" class="role-panel hidden">
-                <header class="panel-header">
-                    <div class="admin-title">
-                        <h2>İdari Yönetim</h2>
-                        <span id="admin-inst-display">KURUM KODU</span>
+            <!-- 6. STOK / ENVANTER PANELİ (YENİ - BAĞIMSIZ) -->
+            <div id="stokPanel" class="view-panel w-100 flex-column align-items-stretch mw-800" style="margin: 0 auto; padding-bottom: 20px;">
+                <!-- Üst Bar -->
+                <div class="d-flex align-items-center justify-content-between mb-4 mt-2 px-1">
+                    <button class="btn btn-outline-secondary rounded-circle d-flex align-items-center justify-content-center p-0 flex-shrink-0" style="width: 38px; height: 38px; border-color: var(--glass-border);" onclick="InventoryManager.kapat()">
+                        <i data-lucide="arrow-left" size="18" class="text-muted"></i>
+                    </button>
+                    <div class="text-center flex-grow-1">
+                        <div class="x-small fw-bold text-muted text-uppercase" style="letter-spacing: 1px;">ENVANTER YÖNETİMİ</div>
+                        <h4 class="fw-bold m-0 text-white">📦 Ürün Listesi</h4>
                     </div>
-                    <button class="logout-btn"><i data-lucide="log-out"></i></button>
-                </header>
+                    <div style="width:38px;"></div>
+                </div>
 
-                <div class="panel-body scrollable">
-                    <div class="admin-stats-grid">
-                        <div class="stat-card">
-                            <span class="stat-val" id="stat-active-trips">0</span>
-                            <span class="stat-lbl">Aktif Sürüş</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-val" id="stat-pending-reqs">0</span>
-                            <span class="stat-lbl">Onay Bekleyen</span>
-                        </div>
+                <!-- Critical Alerts -->
+                <div id="stokKritikPanel" class="alert alert-danger d-none d-flex flex-column gap-2 p-3 rounded-4 mb-4" style="background: rgba(225, 29, 72, 0.1); border: 1px solid var(--danger-color);">
+                    <div class="d-flex align-items-center gap-2">
+                        <i data-lucide="alert-triangle" class="text-danger"></i>
+                        <div class="fw-bold text-danger">⚠️ KRİTİK STOK UYARISI</div>
                     </div>
+                    <div id="stokKritikListe" class="small" style="color: #fca5a5;"></div>
+                </div>
 
-                    <div class="admin-menu">
-                        <button class="menu-btn active" data-aview="approvals">
-                            <i data-lucide="clipboard-check"></i> Onay Kuyruğu <span class="count-badge hidden" id="approval-count">0</span>
-                        </button>
-                        <button class="menu-btn" data-aview="vehicles">
-                            <i data-lucide="car"></i> Araç Filosu
-                        </button>
-                        <button class="menu-btn" data-aview="personnel">
-                            <i data-lucide="users"></i> Personel Listesi
-                        </button>
-                        <button class="menu-btn" data-aview="reports">
-                            <i data-lucide="bar-chart-2"></i> Raporlar
-                        </button>
-                    </div>
+                <!-- Actions bar -->
+                <div class="d-flex gap-2 mb-4">
+                    <button class="btn btn-warning flex-grow-1 py-3 px-4 fw-bold rounded-3 d-flex align-items-center justify-content-center gap-2 shadow-lg" onclick="InventoryManager.showThresholdConfig()" title="Bildirim Ayarla" style="background: var(--warning-color); color: #000; border: none;">
+                        <i data-lucide="bell" size="20"></i> BİLDİRİM AYARLA
+                    </button>
+                    <button class="btn btn-glass-round py-3 shadow-lg" onclick="InventoryManager.showAllLogs()" title="Tüm Hareket Geçmişi" style="width: 60px;">
+                        <i data-lucide="history" size="20"></i>
+                    </button>
+                </div>
 
-                    <div id="admin-content" class="admin-view-content">
-                        <!-- Views will be injected here -->
-                    </div>
+                <!-- Search -->
+                <div class="glass-card px-4 rounded-pill mb-4" style="border: 1px solid var(--glass-border) !important; height: 54px; display: flex; align-items: center; background: rgba(0,0,0,0.3);">
+                    <i data-lucide="search" size="18" class="text-muted me-3"></i>
+                    <input type="text" id="stokSearchInput" class="bg-transparent border-0 text-white shadow-none w-100" placeholder="Ürün ismi ile ara..." oninput="InventoryManager.render()">
+                </div>
+
+                <!-- Stock List -->
+                <div id="stokListesi" class="row g-3 pb-5">
+                    <!-- Items will be rendered here -->
                 </div>
             </div>
 
-        </div>
+            <!-- 6. LİSTE DAĞILIMI PANELİ -->
+            <div id="listePanel" class="view-panel w-100 flex-column align-items-stretch">
+                <div class="w-100" style="max-width: 900px; margin: 0 auto; padding: 0;">
 
-    </main>
+                    <!-- Panel Title -->
+                    <div class="text-center mb-3">
+                        <div class="d-inline-block px-4 py-2 glass-card" style="border-radius: 50px;">
+                            <h4 class="fw-bold m-0" style="color: var(--text-muted); font-size: 0.9rem;">📝 TALEBE TEMİZLİK DAĞILIMI</h4>
+                        </div>
+                    </div>
 
-    <!-- Camera Overlay -->
-    <div id="camera-overlay" class="camera-overlay hidden">
-        <div class="camera-header">
-            <h3 id="camera-step-title">Ön Fotoğraf</h3>
-            <p>Lütfen net bir kare çekin</p>
-        </div>
-        <div class="video-container">
-            <video id="camera-video" autoplay playsinline muted></video>
-            <div class="camera-guides">
-                <div class="guide-box"></div>
+                    <!-- Period & Quick Actions -->
+                    <div class="glass-card p-3 mb-4 d-flex align-items-center justify-content-between gap-3">
+                        <div class="flex-grow-1">
+                            <label class="x-small text-muted fw-bold mb-1 d-block">LİSTE DÖNEMİ / TARİH</label>
+                            <input type="text" id="cleaningPeriod" class="form-control bg-transparent border-0 text-white p-0 shadow-none fw-bold" placeholder="Örn: 2026 Bahar Dönemi" oninput="ListeManager.save()">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-glass-round" onclick="ListeManager.toggleEdit()" title="Kişi Listesini Düzenle">
+                                <i data-lucide="users" size="18"></i>
+                            </button>
+                            <button id="btnDagitMain" class="btn btn-emerald-lg px-4" onclick="ListeManager.dagit()">
+                                <i data-lucide="shuffle" size="18" class="me-1"></i> DAĞIT
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input Boxes (Collapsed by Default) -->
+                    <div id="listeInputArea" class="d-none animate__animated animate__fadeIn">
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-6">
+                                <div class="glass-card p-3 h-100" style="border-left: 4px solid #ffc107 !important;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold text-warning small m-0">🤧 Alerjik Rahatsızlık</h6>
+                                        <button class="btn btn-sm btn-glass-round x-small" onclick="ListeManager.smartPaste('listAlerjik')"><i data-lucide="clipboard-copy" size="12"></i></button>
+                                    </div>
+                                    <textarea id="listAlerjik" class="form-control bg-transparent text-white border-0 shadow-none p-0 x-small" rows="3" placeholder="İsimleri virgülle ayırın..." oninput="ListeManager.updateStats()"></textarea>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="glass-card p-3 h-100" style="border-left: 4px solid #0dcaf0 !important;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold text-info small m-0">🫁 Astım Hastası</h6>
+                                        <button class="btn btn-sm btn-glass-round x-small" onclick="ListeManager.smartPaste('listAstim')"><i data-lucide="clipboard-copy" size="12"></i></button>
+                                    </div>
+                                    <textarea id="listAstim" class="form-control bg-transparent text-white border-0 shadow-none p-0 x-small" rows="3" placeholder="İsimleri virgülle ayırın..." oninput="ListeManager.updateStats()"></textarea>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="glass-card p-3 h-100" style="border-left: 4px solid #198754 !important;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold text-success small m-0">💪 Sağlıklı Olanlar</h6>
+                                        <button class="btn btn-sm btn-glass-round x-small" onclick="ListeManager.smartPaste('listSaglikli')"><i data-lucide="clipboard-copy" size="12"></i></button>
+                                    </div>
+                                    <textarea id="listSaglikli" class="form-control bg-transparent text-white border-0 shadow-none p-0 x-small" rows="3" placeholder="İsimleri virgülle ayırın..." oninput="ListeManager.updateStats()"></textarea>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="glass-card p-3 h-100" style="border-left: 4px solid var(--text-muted) !important;">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold text-secondary small m-0">📋 Diğer</h6>
+                                        <button class="btn btn-sm btn-glass-round x-small" onclick="ListeManager.smartPaste('listDiger')"><i data-lucide="clipboard-copy" size="12"></i></button>
+                                    </div>
+                                    <textarea id="listDiger" class="form-control bg-transparent text-white border-0 shadow-none p-0 x-small" rows="3" placeholder="İsimleri virgülle ayırın..." oninput="ListeManager.updateStats()"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats Bar & Heatmap (Inside Edit Mode) -->
+                        <div class="row g-2 mb-4">
+                            <div class="col-8">
+                                <div class="glass-card p-3 d-flex align-items-center justify-content-around h-100">
+                                    <div class="text-center">
+                                        <div class="x-small text-muted fw-bold">KAPASİTE</div>
+                                        <div id="statsKapasite" class="fw-black text-white">0</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="x-small text-muted fw-bold">TALEBE</div>
+                                        <div id="statsTalebe" class="fw-black text-white">0</div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="x-small text-muted fw-bold">BOŞ</div>
+                                        <div id="statsBos" class="fw-black text-emerald">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="glass-card p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                                    <div id="statsHeatmap" class="d-flex gap-1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="listeDisaAktarimAlani" class="p-0">
+                        <div id="posterHeader" class="text-center mb-4 d-none export-only">
+                            <h2 class="fw-black text-white mb-0">TOPCLEAN</h2>
+                            <h5 class="fw-bold text-emerald mb-2">TALEBE TEMİZLİK GÖREV ÇİZELGESİ</h5>
+                            <div id="posterPeriod" class="badge bg-emerald rounded-pill px-3 py-1"></div>
+                            <hr class="border-secondary opacity-25 mt-3">
+                        </div>
+
+                        <div id="listeSonuclari" class="d-flex flex-column gap-3 pb-5" style="min-height: 200px;">
+                            <!-- Kat kat dağılım sonuçları buraya gelecek -->
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-4 mb-5 justify-content-center">
+                        <!-- PDF Export -->
+                        <div class="text-center">
+                            <button class="btn btn-glass-round p-3 rounded-circle shadow-lg mb-2" style="border-color: rgba(239, 68, 68, 0.4) !important;" onclick="ListeManager.exportPDF()" title="PDF Olarak Yazdır">
+                                <i data-lucide="file-text" size="28" style="color: #ef4444;"></i>
+                            </button>
+                            <div class="x-small text-muted fw-bold">PDF</div>
+                        </div>
+                        
+                        <!-- WhatsApp/Image Export -->
+                        <div class="text-center">
+                            <button class="btn btn-glass-round p-3 rounded-circle shadow-lg mb-2" style="border-color: rgba(16, 185, 129, 0.4) !important;" onclick="ListeManager.exportImage()" title="WhatsApp İçin Resim Al">
+                                <i data-lucide="image" size="28" style="color: #10b981;"></i>
+                            </button>
+                            <div class="x-small text-muted fw-bold">RESİM</div>
+                        </div>
+                    </div>
+
+
+                </div>
             </div>
-        </div>
-        <div class="camera-controls">
-            <button id="btn-cancel-camera" class="cam-btn secondary">İptal</button>
-            <button id="btn-capture" class="cam-btn primary"><i data-lucide="camera"></i></button>
-        </div>
-        <canvas id="camera-canvas" class="hidden"></canvas>
+
+        </main>
     </div>
 
-    <!-- Firebase SDKs (v8 legacy for easy integration like TopClean) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
-    <script src="app.js"></script>
+    <!-- INSPECTOR DETAIL MODAL -->
+    <div class="modal fade" id="adminDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content glass-card border-0 shadow-lg">
+                <div class="modal-header border-bottom-0 pb-0">
+                    <h5 class="modal-title fw-bold text-white" id="modalKatBolum">Detaylı İnceleme</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div id="modalFotoContainer" class="text-center mb-4 d-none">
+                        <img id="modalFoto" src="" class="img-fluid rounded-4 border shadow-lg" style="max-height: 280px; border-color: var(--glass-border) !important;">
+                    </div>
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-dim small text-uppercase mb-3" style="letter-spacing: 1px;">Kriter Analizi</h6>
+                        <div id="modalKriterListesi" class="d-flex flex-column gap-2"></div>
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-dim small text-uppercase mb-2" style="letter-spacing: 1px;">Denetçi Notu</h6>
+                        <textarea id="modalAdminNot" class="form-control custom-input" rows="3" placeholder="Gözlemlerinizi buraya not edin..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0 gap-2">
+                    <button type="button" class="btn btn-outline-danger flex-grow-1 py-3 fw-bold rounded-pill" onclick="AdminManager.processReport('reddedildi')" style="border-radius: 50px !important;">REDDET</button>
+                    <button type="button" class="btn btn-emerald-lg flex-grow-1 py-3 fw-bold" onclick="AdminManager.processReport('onaylandi')">ONAYLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js?v=7"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('TopClean SW Registered!', reg))
+                    .catch(err => console.log('SW Registration Failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>
